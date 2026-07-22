@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { calculateEarnedPoints, canRedeem, type PointsRule } from "@/lib/points";
 import { notifyPointsEarned, notifyRewardRedeemed } from "@/lib/whatsapp/service";
+import { sendPointsEarnedWhatsApp } from "@/lib/whatsapp/membership-card";
 import type { BusinessContext } from "@/lib/tenant";
 import type { Prisma, TransactionType } from "@prisma/client";
 
@@ -210,6 +211,15 @@ export async function earnPoints(input: EarnInput): Promise<EngineResult> {
     // eslint-disable-next-line no-console
     console.error("[whatsapp] earn notification failed:", err);
   }
+
+  // Env-token fallback (single-business setup without a per-tenant connection).
+  await sendPointsEarnedWhatsApp({
+    businessId: ctx.businessId,
+    customerId,
+    points,
+    balanceAfter,
+    storeName: business?.name ?? "PTC Loyalty",
+  });
 
   return { ok: true, transactionId: txn.id, balanceAfter, points };
 }

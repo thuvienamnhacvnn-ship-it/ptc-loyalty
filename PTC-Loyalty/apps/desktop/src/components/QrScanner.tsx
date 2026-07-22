@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import jsQR from "jsqr";
 import { Camera, CameraOff, RefreshCw } from "lucide-react";
 
 type BarcodeDetectorLike = {
@@ -11,13 +12,15 @@ interface Props {
   disabled?: boolean;
 }
 
-/** Webcam QR scanner with camera selection. Uses the browser BarcodeDetector
- *  available in Electron's Chromium. USB scanners are handled separately (they
- *  act as keyboard input — see PosScreen). */
+/** Webcam QR scanner. Decodes with the native BarcodeDetector when available,
+ *  else falls back to jsQR (canvas) — so it works even when Electron's Chromium
+ *  ships without BarcodeDetector. USB scanners are handled separately (they act
+ *  as keyboard input — see PosScreen). */
 export function QrScanner({ preferredCameraId, onToken, disabled }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<BarcodeDetectorLike | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scanningRef = useRef(false);
   const [on, setOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,50 +36,85 @@ export function QrScanner({ preferredCameraId, onToken, disabled }: Props) {
     setOn(false);
   }, []);
 
-  const loop = useCallback(() => {
-    if (!scanningRef.current || !videoRef.current || !detectorRef.current) return;
-    detectorRef.current
-      .detect(videoRef.current)
-      .then((codes) => {
-        if (codes.length > 0 && scanningRef.current) {
-          scanningRef.current = false;
-          onToken(codes[0].rawValue);
-          stop();
-          return;
+  const loop = useCallback(async () => {
+    const video = videoRef.current;
+    if (!scanningRef.current || !video) return;
+    let raw: string | null = null;
+    try {
+      if (detectorRef.current) {
+        const codes = await detectorRef.current.detect(video);
+        if (codes.length > 0) raw = codes[0].rawValue;
+      } else if (video.readyState >= 2 && video.videoWidth > 0) {
+        const canvas = canvasRef.current ?? (canvasRef.current = document.createElement("canvas"));
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const cctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (cctx) {
+          cctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const img = cctx.getImageData(0, 0, canvas.width, canvas.height);
+          const found = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
+          if (found?.data) raw = found.data;
         }
-        if (scanningRef.current) requestAnimationFrame(loop);
-      })
-      .catch(() => {
-        if (scanningRef.current) requestAnimationFrame(loop);
-      });
+      }
+    } catch {
+      /* transient detect/decode errors ignored */
+    }
+    if (raw && scanningRef.current) {
+      scanningRef.current = false;
+      onToken(raw);
+      stop();
+      return;
+    }
+    if (scanningRef.current) requestAnimationFrame(loop);
   }, [onToken, stop]);
 
   const start = useCallback(async () => {
     setError(null);
-    if (!hasDetector) {
-      setError("Trình duyệt không hỗ trợ quét QR tự động. Dùng máy quét USB hoặc tìm thủ công.");
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setError("Không truy cập được camera trên thiết bị này. Dùng máy quét USB hoặc tìm thủ công.");
       return;
     }
+    // Always open the camera; jsQR decodes if BarcodeDetector is unavailable.
+    let stream: MediaStream;
     try {
       const constraints: MediaStreamConstraints = {
-        video: activeId ? { deviceId: { exact: activeId } } : { facingMode: "environment" },
+        video: activeId
+          ? { deviceId: { exact: activeId } }
+          : { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
       };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch {
+        setError("Không truy cập được camera. Kiểm tra quyền và thiết bị.");
+        return;
       }
+    }
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play().catch(() => {});
+    }
+    try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       setCameras(devices.filter((d) => d.kind === "videoinput"));
-      // @ts-expect-error BarcodeDetector not in TS DOM lib
-      detectorRef.current = new window.BarcodeDetector({ formats: ["qr_code"] });
-      scanningRef.current = true;
-      setOn(true);
-      requestAnimationFrame(loop);
     } catch {
-      setError("Không truy cập được camera. Kiểm tra quyền và thiết bị.");
+      /* ignore */
     }
+    if (hasDetector) {
+      try {
+        // @ts-expect-error BarcodeDetector not in TS DOM lib
+        detectorRef.current = new window.BarcodeDetector({ formats: ["qr_code"] });
+      } catch {
+        detectorRef.current = null;
+      }
+    } else {
+      detectorRef.current = null;
+    }
+    scanningRef.current = true;
+    setOn(true);
+    requestAnimationFrame(loop);
   }, [activeId, hasDetector, loop]);
 
   useEffect(() => stop, [stop]);

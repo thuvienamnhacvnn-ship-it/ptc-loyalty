@@ -253,14 +253,22 @@ export function ScannerClient() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg bg-secondary p-3 text-sm">
-            <span className="text-muted-foreground">{customer.memberCode}</span>
-            <div className="flex items-center gap-2">
-              {customer.tier && <Badge>{customer.tier}</Badge>}
-              <span className="font-semibold">
-                {formatNumber(customer.pointsBalance)} P
-              </span>
+          <div className="space-y-2 rounded-lg bg-secondary p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">{customer.memberCode}</span>
+              <div className="flex items-center gap-2">
+                {customer.tier && <Badge>{customer.tier}</Badge>}
+                <span className="font-semibold">
+                  {formatNumber(customer.pointsBalance)} điểm
+                </span>
+              </div>
             </div>
+            {customer.phone && (
+              <div className="flex items-center justify-between border-t pt-2 text-muted-foreground">
+                <span>Điện thoại</span>
+                <span className="font-medium text-foreground">{customer.phone}</span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">

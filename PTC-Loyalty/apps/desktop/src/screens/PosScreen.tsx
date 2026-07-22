@@ -469,10 +469,15 @@ export function PosScreen() {
             <h2 style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <UserRound size={18} /> {customer.name}
             </h2>
-            <div className="row" style={{ marginBottom: 12 }}>
+            <div className="row" style={{ marginBottom: 8 }}>
               <span className="badge">{customer.memberCode}</span>
               {customer.tier && <span className="badge tier">{customer.tier}</span>}
             </div>
+            {customer.phone && (
+              <div className="muted" style={{ marginBottom: 12, fontSize: 13 }}>
+                📞 {customer.phone}
+              </div>
+            )}
             <div className="card" style={{ background: "var(--panel-2)", textAlign: "center", marginBottom: 12 }}>
               <div className="muted" style={{ fontSize: 12 }}>Điểm hiện tại</div>
               <div className="big-num">{formatNumber(customer.pointsBalance)}</div>

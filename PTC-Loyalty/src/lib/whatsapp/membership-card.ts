@@ -1,5 +1,6 @@
+import { db } from "@/lib/db";
 import { createStaticQrToken } from "@/lib/qr";
-import { sendImageMessage, type WhatsAppCredentials } from "./client";
+import { sendImageMessage, sendTextMessage, type WhatsAppCredentials } from "./client";
 
 // Sends a new member their QR membership card over WhatsApp, right after signup.
 // Uses the env WHATSAPP_ACCESS_TOKEN + Phone Number ID (single-business setup).
@@ -48,5 +49,42 @@ export async function sendMemberCardWhatsApp(input: {
   } catch (e) {
     console.error("[membership-card] send failed:", e instanceof Error ? e.message : e);
     return { ok: false, error: "exception" };
+  }
+}
+
+/**
+ * Env-token fallback for the "+X điểm" WhatsApp notice after earning points.
+ * Skips silently when a per-tenant WhatsAppConnection is CONNECTED (the service
+ * already sent it) or when creds/phone are missing. Never throws.
+ */
+export async function sendPointsEarnedWhatsApp(input: {
+  businessId: string;
+  customerId: string;
+  points: number;
+  balanceAfter: number;
+  storeName: string;
+}): Promise<void> {
+  try {
+    const creds = envCreds();
+    if (!creds) return;
+    // Avoid double-send: the per-tenant service handles CONNECTED businesses.
+    const conn = await db.whatsAppConnection.findUnique({
+      where: { businessId: input.businessId },
+      select: { status: true },
+    });
+    if (conn?.status === "CONNECTED") return;
+
+    const customer = await db.customerProfile.findFirst({
+      where: { id: input.customerId, businessId: input.businessId },
+      select: { phone: true },
+    });
+    if (!customer?.phone) return;
+
+    const text =
+      `✅ ${input.storeName}: Bạn vừa được cộng *+${input.points} điểm*.\n` +
+      `Số dư hiện tại: *${input.balanceAfter} điểm*. Cảm ơn bạn! ❤️`;
+    await sendTextMessage(creds, customer.phone, text);
+  } catch (e) {
+    console.error("[points-earned-wa] failed:", e instanceof Error ? e.message : e);
   }
 }

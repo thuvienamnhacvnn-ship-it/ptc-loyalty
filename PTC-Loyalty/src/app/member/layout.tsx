@@ -8,6 +8,9 @@ import { logout } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { MemberNav } from "@/components/member/member-nav";
 
+// Member pages are user-scoped and query the DB; never prerender at build.
+export const dynamic = "force-dynamic";
+
 export default async function MemberLayout({
   children,
 }: {

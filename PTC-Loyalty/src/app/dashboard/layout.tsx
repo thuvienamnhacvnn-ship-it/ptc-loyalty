@@ -3,6 +3,9 @@ import { requireBusinessContext } from "@/lib/tenant";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
 
+// Dashboard pages are tenant-scoped and query the DB; never prerender at build.
+export const dynamic = "force-dynamic";
+
 export default async function DashboardLayout({
   children,
 }: {

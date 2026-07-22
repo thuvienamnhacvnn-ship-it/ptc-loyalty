@@ -33,6 +33,7 @@ export function AddCustomerDialog() {
       lastName: String(formData.get("lastName") ?? ""),
       phone: String(formData.get("phone") ?? ""),
       email: String(formData.get("email") ?? ""),
+      birthDate: String(formData.get("birthDate") ?? ""),
       marketingConsent: formData.get("marketingConsent") === "on",
     });
     if (!result.ok || !result.customerId) {
@@ -40,7 +41,20 @@ export function AddCustomerDialog() {
       toast({ variant: "destructive", title: "Lỗi", description: result.error });
       return;
     }
-    toast({ variant: "success", title: "Đã thêm khách hàng" });
+    toast({
+      variant: "success",
+      title: "Đã thêm khách hàng",
+      description:
+        result.whatsapp === "sent"
+          ? "Đã gửi thẻ QR qua WhatsApp."
+          : result.whatsapp === "no_phone"
+            ? undefined
+            : result.whatsapp === "not_configured"
+              ? "WhatsApp chưa cấu hình — chưa gửi thẻ."
+              : result.whatsapp
+                ? `WhatsApp: ${result.whatsapp}`
+                : undefined,
+    });
     router.refresh();
     // Fetch + show the fixed membership QR right away.
     const qrResult = await customerQrDataUrl(result.customerId);
@@ -101,9 +115,15 @@ export function AddCustomerDialog() {
             <Label htmlFor="phone">Số điện thoại</Label>
             <Input id="phone" name="phone" type="tel" placeholder="+49 ..." />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="birthDate">Ngày sinh</Label>
+              <Input id="birthDate" name="birthDate" type="date" />
+            </div>
           </div>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="marketingConsent" className="h-4 w-4" />

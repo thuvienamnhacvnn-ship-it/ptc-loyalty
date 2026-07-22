@@ -91,11 +91,18 @@ export type CreateCustomerResult =
  */
 export async function createPosCustomer(
   ctx: PosContext,
-  input: { firstName: string; lastName?: string | null; phone?: string | null; email?: string | null },
+  input: {
+    firstName: string;
+    lastName?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    birthDate?: string | null;
+  },
 ): Promise<CreateCustomerResult> {
   const firstName = input.firstName?.trim();
   if (!firstName) return { ok: false, error: "bad_request" };
 
+  const bd = input.birthDate ? new Date(input.birthDate) : null;
   const created = await db.customerProfile.create({
     data: {
       businessId: ctx.businessId,
@@ -104,6 +111,7 @@ export async function createPosCustomer(
       lastName: input.lastName?.trim() || null,
       phone: input.phone?.trim() || null,
       email: input.email?.trim() || null,
+      birthDate: bd && !Number.isNaN(bd.getTime()) ? bd : null,
     },
     select: { ...customerSelect, qrSecret: true },
   });

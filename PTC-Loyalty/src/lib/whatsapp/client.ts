@@ -102,6 +102,23 @@ export function sendTemplateMessage(
   });
 }
 
+/** Send an image message by public URL, with an optional caption.
+ *  (Business-initiated images to a customer who hasn't messaged first require an
+ *  approved template; works free-form inside the 24h window / for test numbers.) */
+export function sendImageMessage(
+  creds: WhatsAppCredentials,
+  to: string,
+  imageUrl: string,
+  caption?: string,
+): Promise<SendResult> {
+  return post(creds, {
+    messaging_product: "whatsapp",
+    to: normalizePhone(to),
+    type: "image",
+    image: { link: imageUrl, ...(caption ? { caption } : {}) },
+  });
+}
+
 /** Send a plain text message (only valid inside the 24h customer window). */
 export function sendTextMessage(
   creds: WhatsAppCredentials,

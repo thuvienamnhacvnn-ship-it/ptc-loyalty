@@ -69,6 +69,7 @@ export function PosScreen() {
   const [cFirst, setCFirst] = useState("");
   const [cLast, setCLast] = useState("");
   const [cPhone, setCPhone] = useState("");
+  const [cBirth, setCBirth] = useState("");
   const [qr, setQr] = useState<{ dataUrl: string; name: string; memberCode: string } | null>(null);
 
   // Anti-double-submit: one idempotency key per attempt; a hard in-flight guard.
@@ -318,6 +319,7 @@ export function PosScreen() {
       firstName: cFirst.trim(),
       lastName: cLast.trim() || undefined,
       phone: cPhone.trim() || undefined,
+      birthDate: cBirth || undefined,
     });
     setBusy(false);
     inFlight.current = false;
@@ -330,6 +332,7 @@ export function PosScreen() {
     setCFirst("");
     setCLast("");
     setCPhone("");
+    setCBirth("");
   }
 
   async function showCustomerQr() {
@@ -682,9 +685,18 @@ export function PosScreen() {
                 <input id="cl" value={cLast} onChange={(e) => setCLast(e.target.value)} />
               </div>
             </div>
-            <div className="field">
-              <label htmlFor="cp">Số điện thoại</label>
-              <input id="cp" value={cPhone} onChange={(e) => setCPhone(e.target.value)} placeholder="+49 ..." />
+            <div className="row">
+              <div className="field" style={{ flex: 1 }}>
+                <label htmlFor="cp">Số điện thoại</label>
+                <input id="cp" value={cPhone} onChange={(e) => setCPhone(e.target.value)} placeholder="+49 ..." />
+              </div>
+              <div className="field" style={{ flex: 1 }}>
+                <label htmlFor="cb">Ngày sinh</label>
+                <input id="cb" type="date" value={cBirth} onChange={(e) => setCBirth(e.target.value)} />
+              </div>
+            </div>
+            <div className="hint" style={{ marginBottom: 8 }}>
+              Có SĐT + WhatsApp đã cấu hình → tự gửi thẻ QR cho khách.
             </div>
             <button className="big success" onClick={confirmCreate} disabled={busy || !cFirst.trim()}>
               {busy ? <Spinner /> : <><QrCode size={16} /> Tạo khách &amp; sinh mã QR</>}

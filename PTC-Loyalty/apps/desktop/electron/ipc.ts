@@ -80,10 +80,11 @@ export async function initIpc(getWindow: () => BrowserWindow | null): Promise<vo
 
   ipcMain.handle(
     "pos:createCustomer",
-    async (_e, input: { firstName: string; lastName?: string; phone?: string; email?: string }) => {
+    async (_e, input: { firstName: string; lastName?: string; phone?: string; email?: string; birthDate?: string }) => {
       const res = await session.authed<{
         customer: PosCustomer;
         qr: { token: string; dataUrl: string };
+        whatsapp?: string;
       }>(await baseUrl(), "/api/pos/customers", { method: "POST", body: input });
       return res.ok
         ? { ok: true as const, customer: res.data.customer, qr: res.data.qr }

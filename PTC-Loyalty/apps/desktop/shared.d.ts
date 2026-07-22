@@ -55,6 +55,7 @@ export interface PosBridge {
     lastName?: string;
     phone?: string;
     email?: string;
+    birthDate?: string;
   }): Promise<
     { ok: true; customer: PosCustomer; qr: { token: string; dataUrl: string } } | Fail
   >;

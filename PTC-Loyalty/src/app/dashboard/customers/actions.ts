@@ -8,6 +8,7 @@ import { hasAtLeast } from "@/lib/rbac";
 import { adjustPoints } from "@/lib/transactions";
 import { generateMemberCode } from "@/lib/utils";
 import { renderMemberQrPng } from "@/lib/member-qr";
+import { sendMemberCardWhatsApp } from "@/lib/whatsapp/membership-card";
 
 export interface FormResult {
   ok: boolean;
@@ -140,18 +141,21 @@ const createSchema = z.object({
   lastName: z.string().trim().optional(),
   phone: z.string().trim().optional(),
   email: z.string().email("Email không hợp lệ").optional().or(z.literal("")),
+  birthDate: z.string().trim().optional(), // yyyy-mm-dd from a date input
   marketingConsent: z.coerce.boolean().optional(),
 });
 
 export async function createCustomer(
   input: z.infer<typeof createSchema>,
-): Promise<FormResult & { customerId?: string }> {
+): Promise<FormResult & { customerId?: string; whatsapp?: string }> {
   const ctx = await requireBusinessContext();
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message };
   }
   const d = parsed.data;
+  const birthDate = d.birthDate ? new Date(d.birthDate) : null;
+
   // memberCode + qrSecret (schema default cuid) are generated automatically, so
   // every new customer immediately has a unique, fixed membership QR.
   const created = await db.customerProfile.create({
@@ -162,10 +166,31 @@ export async function createCustomer(
       lastName: d.lastName || null,
       phone: d.phone || null,
       email: d.email || null,
+      birthDate: birthDate && !Number.isNaN(birthDate.getTime()) ? birthDate : null,
       marketingConsent: !!d.marketingConsent,
     },
-    select: { id: true },
+    select: { id: true, memberCode: true, qrSecret: true, firstName: true, lastName: true },
   });
   revalidatePath("/dashboard/customers");
-  return { ok: true, customerId: created.id };
+
+  // Auto-send the QR membership card over WhatsApp (never fails signup).
+  let whatsapp: string | undefined;
+  if (d.phone) {
+    const biz = await db.business.findUnique({
+      where: { id: ctx.businessId },
+      select: { name: true },
+    });
+    const sent = await sendMemberCardWhatsApp({
+      businessId: ctx.businessId,
+      customerId: created.id,
+      memberCode: created.memberCode,
+      qrSecret: created.qrSecret,
+      name: `${created.firstName} ${created.lastName ?? ""}`.trim(),
+      storeName: biz?.name ?? "PTC Loyalty",
+      toPhone: d.phone,
+    });
+    whatsapp = sent.ok ? "sent" : sent.skipped ?? sent.error;
+  }
+
+  return { ok: true, customerId: created.id, whatsapp };
 }

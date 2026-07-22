@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import jsQR from "jsqr";
 import {
   Camera,
   CameraOff,
@@ -33,6 +34,7 @@ export function ScannerClient() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<BarcodeDetectorLike | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const scanningRef = useRef(false);
 
   const [cameraOn, setCameraOn] = useState(false);
@@ -71,49 +73,98 @@ export function ScannerClient() {
     [toast, stopCamera],
   );
 
+  // Decode a QR from the current video frame — native BarcodeDetector when
+  // available (fast), otherwise a jsQR canvas fallback that works everywhere
+  // (iOS Safari, Firefox, Safari desktop — none of which have BarcodeDetector).
   const scanLoop = useCallback(async () => {
-    if (!scanningRef.current || !videoRef.current || !detectorRef.current) return;
+    const video = videoRef.current;
+    if (!scanningRef.current || !video) return;
+    let raw: string | null = null;
     try {
-      const codes = await detectorRef.current.detect(videoRef.current);
-      if (codes.length > 0 && scanningRef.current) {
-        scanningRef.current = false;
-        setBusy(true);
-        const result = await resolveQrToken(codes[0].rawValue);
-        setBusy(false);
-        handleResolved(result);
-        return;
+      if (detectorRef.current) {
+        const codes = await detectorRef.current.detect(video);
+        if (codes.length > 0) raw = codes[0].rawValue;
+      } else if (video.readyState >= 2 && video.videoWidth > 0) {
+        const canvas = canvasRef.current ?? (canvasRef.current = document.createElement("canvas"));
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const cctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (cctx) {
+          cctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const img = cctx.getImageData(0, 0, canvas.width, canvas.height);
+          const found = jsQR(img.data, img.width, img.height, { inversionAttempts: "dontInvert" });
+          if (found?.data) raw = found.data;
+        }
       }
     } catch {
-      /* transient detect errors are ignored */
+      /* transient detect/decode errors are ignored */
+    }
+    if (raw && scanningRef.current) {
+      scanningRef.current = false;
+      setBusy(true);
+      const result = await resolveQrToken(raw);
+      setBusy(false);
+      handleResolved(result);
+      return;
     }
     if (scanningRef.current) requestAnimationFrame(scanLoop);
   }, [handleResolved]);
 
   const startCamera = useCallback(async () => {
     setCameraError(null);
-    if (!hasDetector) {
+
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setCameraError(
-        "Trình duyệt không hỗ trợ quét QR tự động. Vui lòng dùng tìm kiếm thủ công bên dưới.",
+        "Trình duyệt không hỗ trợ camera, hoặc trang không chạy trên HTTPS. Hãy dùng tìm kiếm thủ công bên dưới.",
       );
       return;
     }
+
+    // Always try to open the camera — QR decoding falls back to jsQR if the
+    // browser lacks BarcodeDetector. `ideal` (not `exact`) so desktops without a
+    // rear camera still get a camera.
+    let stream: MediaStream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode },
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
       });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      // @ts-expect-error BarcodeDetector is not in TS DOM lib yet
-      detectorRef.current = new window.BarcodeDetector({ formats: ["qr_code"] });
-      scanningRef.current = true;
-      setCameraOn(true);
-      requestAnimationFrame(scanLoop);
     } catch {
-      setCameraError("Không truy cập được camera. Kiểm tra quyền truy cập.");
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (err) {
+        const name = (err as DOMException)?.name;
+        setCameraError(
+          name === "NotAllowedError"
+            ? "Bạn đã từ chối quyền camera. Hãy cấp quyền camera cho trang trong cài đặt trình duyệt rồi thử lại."
+            : name === "NotFoundError"
+              ? "Không tìm thấy camera trên thiết bị này."
+              : "Không truy cập được camera. Kiểm tra quyền truy cập và đảm bảo trang chạy trên HTTPS.",
+        );
+        return;
+      }
     }
+
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play().catch(() => {});
+    }
+
+    // Prefer native detector; otherwise the jsQR fallback in scanLoop is used.
+    if (hasDetector) {
+      try {
+        // @ts-expect-error BarcodeDetector is not in TS DOM lib yet
+        detectorRef.current = new window.BarcodeDetector({ formats: ["qr_code"] });
+      } catch {
+        detectorRef.current = null;
+      }
+    } else {
+      detectorRef.current = null;
+    }
+
+    scanningRef.current = true;
+    setCameraOn(true);
+    requestAnimationFrame(scanLoop);
   }, [facingMode, hasDetector, scanLoop]);
 
   useEffect(() => stopCamera, [stopCamera]);

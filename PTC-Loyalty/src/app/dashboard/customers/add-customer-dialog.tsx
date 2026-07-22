@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
-import { createCustomer } from "./actions";
+import { createCustomer, customerQrDataUrl, type CustomerQrResult } from "./actions";
+import { MemberQrView } from "./member-qr-view";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ export function AddCustomerDialog() {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [qr, setQr] = useState<CustomerQrResult | null>(null);
 
   async function onSubmit(formData: FormData) {
     setBusy(true);
@@ -33,24 +35,51 @@ export function AddCustomerDialog() {
       email: String(formData.get("email") ?? ""),
       marketingConsent: formData.get("marketingConsent") === "on",
     });
-    setBusy(false);
-    if (!result.ok) {
+    if (!result.ok || !result.customerId) {
+      setBusy(false);
       toast({ variant: "destructive", title: "Lỗi", description: result.error });
       return;
     }
     toast({ variant: "success", title: "Đã thêm khách hàng" });
-    setOpen(false);
     router.refresh();
+    // Fetch + show the fixed membership QR right away.
+    const qrResult = await customerQrDataUrl(result.customerId);
+    setBusy(false);
+    setQr(qrResult);
+  }
+
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) setQr(null); // reset back to the form when the dialog closes
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="h-4 w-4" /> Thêm khách hàng
         </Button>
       </DialogTrigger>
       <DialogContent>
+        {qr ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Mã QR thành viên</DialogTitle>
+              <DialogDescription>
+                Đưa khách quét hoặc tải/in thẻ QR. Mã này cố định, không đổi.
+              </DialogDescription>
+            </DialogHeader>
+            {qr.ok ? (
+              <MemberQrView dataUrl={qr.dataUrl} name={qr.name} memberCode={qr.memberCode} />
+            ) : (
+              <p className="text-center text-sm text-destructive">{qr.error}</p>
+            )}
+            <DialogFooter>
+              <Button onClick={() => handleOpenChange(false)}>Xong</Button>
+            </DialogFooter>
+          </>
+        ) : (
+          <>
         <DialogHeader>
           <DialogTitle>Thêm khách hàng mới</DialogTitle>
           <DialogDescription>
@@ -87,6 +116,8 @@ export function AddCustomerDialog() {
             </Button>
           </DialogFooter>
         </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

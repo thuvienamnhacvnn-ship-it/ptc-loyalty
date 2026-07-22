@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Search,
   UserRound,
+  UserPlus,
+  QrCode,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -62,6 +64,12 @@ export function PosScreen() {
   const [selectedReward, setSelectedReward] = useState<string | null>(null);
   // voucher
   const [voucherCode, setVoucherCode] = useState("");
+  // create customer + QR display
+  const [showCreate, setShowCreate] = useState(false);
+  const [cFirst, setCFirst] = useState("");
+  const [cLast, setCLast] = useState("");
+  const [cPhone, setCPhone] = useState("");
+  const [qr, setQr] = useState<{ dataUrl: string; name: string; memberCode: string } | null>(null);
 
   // Anti-double-submit: one idempotency key per attempt; a hard in-flight guard.
   const idemRef = useRef<string>(uuid());
@@ -300,6 +308,42 @@ export function PosScreen() {
     inFlight.current = false;
   }
 
+  // ── CREATE CUSTOMER + QR ──────────────────────────────────────────────────────
+  async function confirmCreate() {
+    if (!cFirst.trim() || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setLookupError(null);
+    const res = await window.pos.createCustomer({
+      firstName: cFirst.trim(),
+      lastName: cLast.trim() || undefined,
+      phone: cPhone.trim() || undefined,
+    });
+    setBusy(false);
+    inFlight.current = false;
+    if (!res.ok) {
+      setLookupError(res.message);
+      return;
+    }
+    setQr({ dataUrl: res.qr.dataUrl, name: res.customer.name, memberCode: res.customer.memberCode });
+    setShowCreate(false);
+    setCFirst("");
+    setCLast("");
+    setCPhone("");
+  }
+
+  async function showCustomerQr() {
+    if (!customer) return;
+    setBusy(true);
+    const res = await window.pos.customerQr(customer.id);
+    setBusy(false);
+    if (res.ok) {
+      setQr({ dataUrl: res.qr.dataUrl, name: customer.name, memberCode: customer.memberCode });
+    } else {
+      setLookupError(res.message);
+    }
+  }
+
   async function syncQueue() {
     if (!window.confirm(`Đồng bộ ${s.queueCount} giao dịch đang chờ?`)) return;
     setBusy(true);
@@ -309,6 +353,38 @@ export function PosScreen() {
     window.alert(
       `Đã đồng bộ: ${out.synced}/${out.total}. Lỗi: ${out.failed}.` +
         (out.stillOffline ? "\nVẫn còn mất mạng — thử lại sau." : ""),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // QR screen (after create / view existing)
+  // ─────────────────────────────────────────────────────────────────────────────
+  if (qr) {
+    return (
+      <div className="center">
+        <div className="card" style={{ width: 400, textAlign: "center" }}>
+          <h2 style={{ marginTop: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <QrCode size={20} /> Mã QR thành viên
+          </h2>
+          <img
+            src={qr.dataUrl}
+            alt={`QR ${qr.memberCode}`}
+            style={{ width: 280, height: 280, background: "#fff", borderRadius: 12, padding: 8 }}
+          />
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontWeight: 600 }}>{qr.name}</div>
+            <div className="muted">{qr.memberCode}</div>
+          </div>
+          <p className="muted" style={{ fontSize: 13 }}>
+            Mã cố định — khách có thể chụp lại hoặc quét ngay để tích điểm.
+          </p>
+          <div className="row" style={{ marginTop: 6, justifyContent: "center" }}>
+            <button onClick={() => setQr(null)}>
+              <RotateCcw size={16} /> Xong
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -398,6 +474,9 @@ export function PosScreen() {
               <div className="muted" style={{ fontSize: 12 }}>Điểm hiện tại</div>
               <div className="big-num">{formatNumber(customer.pointsBalance)}</div>
             </div>
+            <button className="ghost" style={{ width: "100%", marginBottom: 12 }} onClick={showCustomerQr} disabled={busy}>
+              <QrCode size={15} /> Xem mã QR thành viên
+            </button>
             <h3>Giao dịch gần đây</h3>
             {detail ? (
               detail.recentTransactions.length ? (
@@ -580,6 +659,41 @@ export function PosScreen() {
           </button>
         </form>
         {lookupError && <p className="error-text" style={{ marginTop: 10 }}>{lookupError}</p>}
+      </div>
+
+      {/* Create a new customer (auto-generates a fixed membership QR) */}
+      <div className="card">
+        {!showCreate ? (
+          <button className="ghost" style={{ width: "100%" }} onClick={() => setShowCreate(true)}>
+            <UserPlus size={16} /> Tạo khách hàng mới
+          </button>
+        ) : (
+          <>
+            <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <UserPlus size={16} /> Khách hàng mới
+            </h3>
+            <div className="row">
+              <div className="field" style={{ flex: 1 }}>
+                <label htmlFor="cf">Tên *</label>
+                <input id="cf" autoFocus value={cFirst} onChange={(e) => setCFirst(e.target.value)} />
+              </div>
+              <div className="field" style={{ flex: 1 }}>
+                <label htmlFor="cl">Họ</label>
+                <input id="cl" value={cLast} onChange={(e) => setCLast(e.target.value)} />
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="cp">Số điện thoại</label>
+              <input id="cp" value={cPhone} onChange={(e) => setCPhone(e.target.value)} placeholder="+49 ..." />
+            </div>
+            <button className="big success" onClick={confirmCreate} disabled={busy || !cFirst.trim()}>
+              {busy ? <Spinner /> : <><QrCode size={16} /> Tạo khách &amp; sinh mã QR</>}
+            </button>
+            <button className="ghost" style={{ width: "100%", marginTop: 8 }} onClick={() => setShowCreate(false)}>
+              Hủy
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

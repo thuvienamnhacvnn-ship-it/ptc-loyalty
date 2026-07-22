@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireBusinessContext } from "@/lib/tenant";
 import { hasAtLeast } from "@/lib/rbac";
 import { CustomerActions } from "./customer-actions";
+import { CustomerQrCard } from "../customer-qr-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,19 +107,23 @@ export default async function CustomerDetailPage({
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle>Thông tin</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {details.map((d) => (
-              <div key={d.label} className="flex justify-between text-sm">
-                <span className="text-muted-foreground">{d.label}</span>
-                <span className="font-medium">{d.value}</span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        <div className="space-y-6 lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle>Thông tin</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {details.map((d) => (
+                <div key={d.label} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">{d.label}</span>
+                  <span className="font-medium">{d.value}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          <CustomerQrCard customerId={customer.id} />
+        </div>
 
         <Card className="lg:col-span-2">
           <CardHeader>

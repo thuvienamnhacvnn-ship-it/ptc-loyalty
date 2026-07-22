@@ -78,6 +78,29 @@ export async function initIpc(getWindow: () => BrowserWindow | null): Promise<vo
       : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
   });
 
+  ipcMain.handle(
+    "pos:createCustomer",
+    async (_e, input: { firstName: string; lastName?: string; phone?: string; email?: string }) => {
+      const res = await session.authed<{
+        customer: PosCustomer;
+        qr: { token: string; dataUrl: string };
+      }>(await baseUrl(), "/api/pos/customers", { method: "POST", body: input });
+      return res.ok
+        ? { ok: true as const, customer: res.data.customer, qr: res.data.qr }
+        : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+    },
+  );
+
+  ipcMain.handle("pos:customerQr", async (_e, id: string) => {
+    const res = await session.authed<{ token: string; dataUrl: string }>(
+      await baseUrl(),
+      `/api/pos/customers/${encodeURIComponent(id)}/qr`,
+    );
+    return res.ok
+      ? { ok: true as const, qr: res.data }
+      : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+  });
+
   ipcMain.handle("pos:resolveQr", async (_e, token: string) => {
     const res = await session.authed<PosCustomer>(
       await baseUrl(),

@@ -49,6 +49,17 @@ export interface PosBridge {
   search(q: string): Promise<{ ok: true; customer: PosCustomer } | Fail>;
   resolveQr(token: string): Promise<{ ok: true; customer: PosCustomer } | Fail>;
   customerDetail(id: string): Promise<{ ok: true; detail: PosCustomerDetail } | Fail>;
+  createCustomer(input: {
+    firstName: string;
+    lastName?: string;
+    phone?: string;
+    email?: string;
+  }): Promise<
+    { ok: true; customer: PosCustomer; qr: { token: string; dataUrl: string } } | Fail
+  >;
+  customerQr(
+    id: string,
+  ): Promise<{ ok: true; qr: { token: string; dataUrl: string } } | Fail>;
   preview(
     customerId: string,
     amount: number,

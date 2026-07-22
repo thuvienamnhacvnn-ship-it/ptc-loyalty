@@ -15,6 +15,8 @@ const bridge = {
   search: (q: string) => ipcRenderer.invoke("pos:search", q),
   resolveQr: (token: string) => ipcRenderer.invoke("pos:resolveQr", token),
   customerDetail: (id: string) => ipcRenderer.invoke("pos:customerDetail", id),
+  createCustomer: (input: unknown) => ipcRenderer.invoke("pos:createCustomer", input),
+  customerQr: (id: string) => ipcRenderer.invoke("pos:customerQr", id),
   preview: (customerId: string, amount: number) =>
     ipcRenderer.invoke("pos:preview", customerId, amount),
 

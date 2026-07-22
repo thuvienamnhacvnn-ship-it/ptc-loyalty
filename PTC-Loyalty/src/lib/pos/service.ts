@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { calculateEarnedPoints, type PointsRule } from "@/lib/points";
 import { verifyQrToken } from "@/lib/qr";
+import { generateMemberCode } from "@/lib/utils";
 import type { PosContext } from "@/lib/pos/context";
 import type {
   PosCustomer,
@@ -78,6 +79,54 @@ export async function searchCustomer(
   if (!customer) return { ok: false, error: "customer_not_found" };
   if (customer.isBlocked) return { ok: false, error: "customer_not_found" };
   return { ok: true, customer: toPosCustomer(customer) };
+}
+
+export type CreateCustomerResult =
+  | { ok: true; customer: PosCustomer; customerId: string; memberCode: string; qrSecret: string }
+  | { ok: false; error: string };
+
+/**
+ * Create a customer from the desktop client (tenant-scoped). memberCode + qrSecret
+ * are generated automatically, so the caller can immediately render a fixed QR.
+ */
+export async function createPosCustomer(
+  ctx: PosContext,
+  input: { firstName: string; lastName?: string | null; phone?: string | null; email?: string | null },
+): Promise<CreateCustomerResult> {
+  const firstName = input.firstName?.trim();
+  if (!firstName) return { ok: false, error: "bad_request" };
+
+  const created = await db.customerProfile.create({
+    data: {
+      businessId: ctx.businessId,
+      memberCode: generateMemberCode(),
+      firstName,
+      lastName: input.lastName?.trim() || null,
+      phone: input.phone?.trim() || null,
+      email: input.email?.trim() || null,
+    },
+    select: { ...customerSelect, qrSecret: true },
+  });
+  return {
+    ok: true,
+    customer: toPosCustomer(created),
+    customerId: created.id,
+    memberCode: created.memberCode,
+    qrSecret: created.qrSecret,
+  };
+}
+
+/** Look up a customer's qrSecret for rendering their fixed QR (tenant-scoped). */
+export async function customerQrData(
+  ctx: PosContext,
+  customerId: string,
+): Promise<{ businessId: string; customerId: string; memberCode: string; secret: string } | null> {
+  const c = await db.customerProfile.findFirst({
+    where: { id: customerId, businessId: ctx.businessId },
+    select: { id: true, memberCode: true, qrSecret: true },
+  });
+  if (!c) return null;
+  return { businessId: ctx.businessId, customerId: c.id, memberCode: c.memberCode, secret: c.qrSecret };
 }
 
 /** Verify a scanned QR token and resolve the customer (tenant-scoped). */

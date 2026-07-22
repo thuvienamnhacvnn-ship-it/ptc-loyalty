@@ -72,6 +72,34 @@ export function createQrToken(
   return `${payloadB64}.${sign(payloadB64)}`;
 }
 
+// Far-future expiry (2100-01-01) — a printed membership card must keep working
+// for years, so the "static" token effectively never expires.
+const STATIC_EXP = 4102444800;
+
+/**
+ * Create a FIXED, printable member QR token. Unlike createQrToken (which rotates
+ * every 60s for the on-screen dynamic card), this is deterministic per customer
+ * — same customer → same token bytes every time — so a printed card is stable
+ * and "không đổi". Still fully signed + tenant/secret-checked on scan.
+ */
+export function createStaticQrToken(data: {
+  businessId: string;
+  customerId: string;
+  memberCode: string;
+  secret: string;
+}): string {
+  const payload: QrPayload = {
+    b: data.businessId,
+    c: data.customerId,
+    m: data.memberCode,
+    s: data.secret,
+    iat: 0,
+    exp: STATIC_EXP,
+  };
+  const payloadB64 = b64url(JSON.stringify(payload));
+  return `${payloadB64}.${sign(payloadB64)}`;
+}
+
 export type QrVerifyResult =
   | { ok: true; payload: QrPayload }
   | { ok: false; reason: "malformed" | "bad_signature" | "expired" };

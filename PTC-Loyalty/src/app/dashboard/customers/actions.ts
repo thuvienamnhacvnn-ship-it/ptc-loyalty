@@ -7,10 +7,39 @@ import { requireBusinessContext } from "@/lib/tenant";
 import { hasAtLeast } from "@/lib/rbac";
 import { adjustPoints } from "@/lib/transactions";
 import { generateMemberCode } from "@/lib/utils";
+import { renderMemberQrPng } from "@/lib/member-qr";
 
 export interface FormResult {
   ok: boolean;
   error?: string;
+}
+
+export type CustomerQrResult =
+  | { ok: true; dataUrl: string; token: string; memberCode: string; name: string }
+  | { ok: false; error: string };
+
+/** Fixed membership QR (PNG data URL) for a customer — staff view/print. */
+export async function customerQrDataUrl(customerId: string): Promise<CustomerQrResult> {
+  const ctx = await requireBusinessContext();
+  const c = await db.customerProfile.findFirst({
+    where: { id: customerId, businessId: ctx.businessId },
+    select: { id: true, memberCode: true, qrSecret: true, firstName: true, lastName: true },
+  });
+  if (!c) return { ok: false, error: "Không tìm thấy khách hàng." };
+
+  const { token, dataUrl } = await renderMemberQrPng({
+    businessId: ctx.businessId,
+    customerId: c.id,
+    memberCode: c.memberCode,
+    secret: c.qrSecret,
+  });
+  return {
+    ok: true,
+    dataUrl,
+    token,
+    memberCode: c.memberCode,
+    name: `${c.firstName} ${c.lastName ?? ""}`.trim(),
+  };
 }
 
 const adjustSchema = z.object({
@@ -116,14 +145,16 @@ const createSchema = z.object({
 
 export async function createCustomer(
   input: z.infer<typeof createSchema>,
-): Promise<FormResult> {
+): Promise<FormResult & { customerId?: string }> {
   const ctx = await requireBusinessContext();
   const parsed = createSchema.safeParse(input);
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message };
   }
   const d = parsed.data;
-  await db.customerProfile.create({
+  // memberCode + qrSecret (schema default cuid) are generated automatically, so
+  // every new customer immediately has a unique, fixed membership QR.
+  const created = await db.customerProfile.create({
     data: {
       businessId: ctx.businessId,
       memberCode: generateMemberCode(),
@@ -133,7 +164,8 @@ export async function createCustomer(
       email: d.email || null,
       marketingConsent: !!d.marketingConsent,
     },
+    select: { id: true },
   });
   revalidatePath("/dashboard/customers");
-  return { ok: true };
+  return { ok: true, customerId: created.id };
 }

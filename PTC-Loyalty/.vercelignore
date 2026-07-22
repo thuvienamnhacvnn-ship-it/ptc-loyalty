@@ -1,0 +1,8 @@
+# Vercel builds ONLY the Next.js web app at the repo root.
+#
+# apps/desktop is a standalone Electron client with its OWN package.json and
+# package-lock.json. Uploading it makes Vercel's framework/root-directory
+# detection ambiguous (two lockfiles, a non-Next project) which can lead to the
+# wrong build output and a platform-level 404 (NOT_FOUND). The web app never
+# imports from it, so exclude it entirely.
+apps/

@@ -49,6 +49,7 @@ export default async function SettingsPage() {
 
       <SettingsForms
         readOnly={!hasAtLeast(ctx.role, "BUSINESS_OWNER")}
+        appBaseUrl={process.env.NEXT_PUBLIC_APP_URL ?? ""}
         business={{
           name: business.name,
           slug: business.slug,

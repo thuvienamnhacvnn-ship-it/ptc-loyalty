@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { registerBusiness, type ActionState } from "../actions";
@@ -19,17 +19,6 @@ const businessTypes = [
   { value: "other", label: "Khác" },
 ];
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
-}
-
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -45,7 +34,6 @@ export function RegisterForm() {
     registerBusiness,
     {},
   );
-  const [slug, setSlug] = useState("");
 
   return (
     <form action={formAction} className="space-y-4">
@@ -63,9 +51,6 @@ export function RegisterForm() {
           name="businessName"
           placeholder="Phở Hà Nội Berlin"
           required
-          onChange={(e) => {
-            if (!slug) setSlug(slugify(e.target.value));
-          }}
         />
         {state.fieldErrors?.businessName && (
           <p className="text-xs text-destructive">
@@ -92,25 +77,6 @@ export function RegisterForm() {
             </option>
           ))}
         </select>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="slug">Đường dẫn (slug)</Label>
-        <div className="flex items-center rounded-md border border-input bg-background pl-3 text-sm text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
-          <span className="shrink-0">/business/</span>
-          <input
-            id="slug"
-            name="slug"
-            value={slug}
-            onChange={(e) => setSlug(slugify(e.target.value))}
-            placeholder="pho-hanoi"
-            required
-            className="h-10 w-full bg-transparent px-1 text-foreground focus:outline-none"
-          />
-        </div>
-        {state.fieldErrors?.slug && (
-          <p className="text-xs text-destructive">{state.fieldErrors.slug[0]}</p>
-        )}
       </div>
 
       <div className="space-y-2">

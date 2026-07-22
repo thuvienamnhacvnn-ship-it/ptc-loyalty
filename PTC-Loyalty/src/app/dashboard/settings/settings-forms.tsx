@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2 } from "lucide-react";
 import { saveBusinessProfile, saveBranding } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,13 +21,36 @@ interface Props {
   };
   branding: { primaryColor: string; accentColor: string; logoUrl: string | null };
   readOnly: boolean;
+  /** Public base URL used for SSR; the client prefers window.location.origin. */
+  appBaseUrl: string;
 }
 
-export function SettingsForms({ business, branding, readOnly }: Props) {
+export function SettingsForms({ business, branding, readOnly, appBaseUrl }: Props) {
   const router = useRouter();
   const { toast } = useToast();
   const [busyA, setBusyA] = useState(false);
   const [busyB, setBusyB] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Start from the server-provided base (stable SSR), then upgrade to the real
+  // browser origin on mount so the shown URL always matches the current domain.
+  const [origin, setOrigin] = useState(appBaseUrl);
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location?.origin) {
+      setOrigin(window.location.origin);
+    }
+  }, []);
+  const businessUrl = `${origin.replace(/\/$/, "")}/business/${business.slug}`;
+
+  async function copyBusinessUrl() {
+    try {
+      await navigator.clipboard.writeText(businessUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({ variant: "destructive", title: "Không sao chép được đường dẫn" });
+    }
+  }
 
   async function saveProfile(formData: FormData) {
     setBusyA(true);
@@ -75,9 +98,39 @@ export function SettingsForms({ business, branding, readOnly }: Props) {
               <Label htmlFor="name">Tên doanh nghiệp</Label>
               <Input id="name" name="name" defaultValue={business.name} disabled={readOnly} />
             </div>
-            <div className="space-y-2">
-              <Label>Slug (không đổi được)</Label>
-              <Input value={`/business/${business.slug}`} disabled />
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Đường dẫn doanh nghiệp</Label>
+              <div className="flex flex-col gap-3 rounded-md border border-input bg-muted/40 p-3 sm:flex-row sm:items-center">
+                <code className="min-w-0 flex-1 break-all text-sm text-foreground">
+                  {businessUrl}
+                </code>
+                <div className="flex shrink-0 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={copyBusinessUrl}
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="h-4 w-4" /> Đã sao chép
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" /> Sao chép
+                      </>
+                    )}
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" asChild>
+                    <a href={businessUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4" /> Mở đường dẫn
+                    </a>
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Đường dẫn cố định, được tạo tự động và không thể thay đổi.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="locale">Ngôn ngữ</Label>

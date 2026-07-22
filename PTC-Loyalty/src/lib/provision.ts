@@ -1,5 +1,36 @@
+import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import type { PlanTier, Prisma } from "@prisma/client";
+
+/**
+ * A business slug is random and opaque: `biz-` + 12 lowercase hex chars, e.g.
+ * `biz-9f3c1a0b7d24`. It is NEVER derived from the business name and never
+ * exposes the sequential DB id. Generated + verified unique on the server; the
+ * `slug @unique` DB constraint is the final guard.
+ */
+export function generateBusinessSlug(): string {
+  return `biz-${crypto.randomBytes(6).toString("hex")}`;
+}
+
+/**
+ * Return a slug that is not already used by an existing business. On the
+ * (astronomically unlikely, 2^48-space) collision it regenerates rather than
+ * surfacing an error to the user.
+ */
+export async function generateUniqueBusinessSlug(
+  client: Prisma.TransactionClient | typeof db = db,
+): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const slug = generateBusinessSlug();
+    const existing = await client.business.findUnique({
+      where: { slug },
+      select: { id: true },
+    });
+    if (!existing) return slug;
+  }
+  // Extra entropy fallback — practically never reached.
+  return `biz-${crypto.randomBytes(9).toString("hex")}`;
+}
 
 // Default membership tiers created for every new business.
 export const DEFAULT_TIERS = [

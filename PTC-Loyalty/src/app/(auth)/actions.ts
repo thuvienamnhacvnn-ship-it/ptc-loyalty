@@ -1,11 +1,16 @@
 "use server";
 
 import { AuthError } from "next-auth";
+import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { signIn, signOut } from "@/auth";
-import { ensurePlans, provisionBusiness } from "@/lib/provision";
+import {
+  ensurePlans,
+  provisionBusiness,
+  generateUniqueBusinessSlug,
+} from "@/lib/provision";
 import { homeForRole } from "@/lib/rbac";
 
 export async function logout() {
@@ -56,14 +61,12 @@ export async function login(
   return {};
 }
 
-const slugRegex = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])$/;
-
+// Note: `slug` is intentionally NOT part of this schema. It is generated on the
+// server (see generateUniqueBusinessSlug) and any `slug` the client might send
+// is ignored — clients must not be able to choose or override it.
 const registerSchema = z.object({
   businessName: z.string().min(2, "Tên doanh nghiệp quá ngắn"),
   businessType: z.string().min(1, "Chọn loại hình"),
-  slug: z
-    .string()
-    .regex(slugRegex, "Slug chỉ gồm chữ thường, số và dấu gạch ngang"),
   ownerName: z.string().min(2, "Nhập họ tên"),
   email: z.string().email("Email không hợp lệ"),
   password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự"),
@@ -76,7 +79,6 @@ export async function registerBusiness(
   const parsed = registerSchema.safeParse({
     businessName: formData.get("businessName"),
     businessType: formData.get("businessType"),
-    slug: formData.get("slug"),
     ownerName: formData.get("ownerName"),
     email: formData.get("email"),
     password: formData.get("password"),
@@ -87,35 +89,52 @@ export async function registerBusiness(
   const data = parsed.data;
   const email = data.email.toLowerCase();
 
-  const [emailTaken, slugTaken] = await Promise.all([
-    db.user.findUnique({ where: { email } }),
-    db.business.findUnique({ where: { slug: data.slug } }),
-  ]);
+  const emailTaken = await db.user.findUnique({ where: { email } });
   if (emailTaken) return { error: "Email đã được sử dụng." };
-  if (slugTaken) return { error: "Slug đã tồn tại, chọn slug khác." };
 
   await ensurePlans();
   const passwordHash = await bcrypt.hash(data.password, 10);
 
-  await db.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        name: data.ownerName,
-        email,
-        passwordHash,
-        role: "BUSINESS_OWNER",
-        emailVerified: new Date(), // demo: auto-verify
-      },
-    });
-    await provisionBusiness({
-      ownerId: user.id,
-      name: data.businessName,
-      type: data.businessType,
-      slug: data.slug,
-      email,
-      tx,
-    });
-  });
+  // Create User + Business (+ branding/settings/subscription/tiers/branch) +
+  // owner StaffProfile atomically. The slug is generated server-side inside the
+  // transaction; on the near-impossible unique collision we regenerate & retry
+  // instead of failing the sign-up.
+  let created = false;
+  for (let attempt = 0; attempt < 3 && !created; attempt++) {
+    try {
+      await db.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            name: data.ownerName,
+            email,
+            passwordHash,
+            role: "BUSINESS_OWNER",
+            emailVerified: new Date(), // demo: auto-verify
+          },
+        });
+        const slug = await generateUniqueBusinessSlug(tx);
+        await provisionBusiness({
+          ownerId: user.id,
+          name: data.businessName,
+          type: data.businessType,
+          slug,
+          email,
+          tx,
+        });
+      });
+      created = true;
+    } catch (e) {
+      const isSlugCollision =
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === "P2002" &&
+        (e.meta?.target as string[] | undefined)?.includes?.("slug");
+      if (isSlugCollision) continue; // regenerate slug on next iteration
+      throw e;
+    }
+  }
+  if (!created) {
+    return { error: "Không thể tạo doanh nghiệp, vui lòng thử lại." };
+  }
 
   try {
     await signIn("credentials", {

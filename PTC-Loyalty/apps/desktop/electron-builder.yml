@@ -1,0 +1,30 @@
+appId: de.ptcloyalty.desktop
+productName: PTC Loyalty Kasse
+copyright: © PTC Loyalty
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+# Auto-update feed. Replace `url` with your real update host before release.
+# electron-updater reads this channel; `dist` emits latest.yml + the installer.
+publish:
+  - provider: generic
+    url: https://downloads.ptc-loyalty.example/desktop/
+    channel: latest
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: PTC Loyalty Kasse
+# To also emit an .msi, run `npm run dist:msi` (adds the msi target).

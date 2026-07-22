@@ -1,0 +1,877 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// PTC Loyalty Platform — Prisma schema
+// Multi-tenant SaaS. Every tenant-scoped table carries `businessId`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  BUSINESS_OWNER
+  BUSINESS_MANAGER
+  STAFF
+  CUSTOMER
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  SUSPENDED
+}
+
+enum PlanTier {
+  BASIC
+  BUSINESS
+  PREMIUM
+}
+
+enum BusinessStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum TransactionType {
+  EARN
+  REDEEM
+  BONUS
+  REFUND
+  ADJUSTMENT
+  EXPIRE
+  REFERRAL
+  BIRTHDAY
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  REVERSED
+  FAILED
+}
+
+enum VoucherStatus {
+  DRAFT
+  ACTIVE
+  USED
+  EXPIRED
+  CANCELLED
+}
+
+enum CustomerVoucherStatus {
+  ISSUED
+  REDEEMED
+  EXPIRED
+  CANCELLED
+}
+
+enum RewardStatus {
+  ACTIVE
+  INACTIVE
+  OUT_OF_STOCK
+}
+
+enum RedemptionStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
+}
+
+enum CampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+enum FraudRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum NotificationType {
+  POINTS_EARNED
+  REWARD_REDEEMED
+  VOUCHER_NEW
+  POINTS_EXPIRING
+  TIER_UPGRADE_SOON
+  OFFER
+  BIRTHDAY
+  LARGE_TRANSACTION
+  FRAUD_ALERT
+  SUBSCRIPTION
+  SYSTEM
+}
+
+enum LoyaltyProgramType {
+  SPEND_BASED
+  VISIT_BASED
+  BUY_X_GET_Y
+  DIGITAL_STAMP
+  TIER
+  CASHBACK
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum WhatsAppConnectionStatus {
+  DISCONNECTED
+  CONNECTED
+  ERROR
+}
+
+enum WhatsAppMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum WhatsAppMessageKind {
+  POINTS_EARNED
+  REWARD_REDEEMED
+  VOUCHER
+  TEST
+}
+
+// ── Auth (Auth.js compatible) ────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  role          UserRole  @default(CUSTOMER)
+  locale        String    @default("vi")
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts         Account[]
+  sessions         Session[]
+  staffProfiles    StaffProfile[]
+  customerProfiles CustomerProfile[]
+  ownedBusinesses  Business[]        @relation("BusinessOwner")
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  posRefreshTokens PosRefreshToken[]
+}
+
+// ── POS desktop client sessions ──────────────────────────────────────────────
+// Long-lived refresh tokens for the Windows desktop (Electron) client. Only the
+// SHA-256 hash of the opaque refresh token is stored, so a DB leak cannot mint
+// sessions. Access tokens themselves are short-lived HMAC JWTs and are NOT
+// stored. Rotated on every refresh; revoked on logout.
+model PosRefreshToken {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique // sha256(rawRefreshToken)
+  businessId  String? // business resolved at issue time (informational)
+  deviceLabel String? // e.g. "Kasse 1 – Pho Hanoi"
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ── Tenant core ──────────────────────────────────────────────────────────────
+
+model Business {
+  id           String         @id @default(cuid())
+  slug         String         @unique
+  name         String
+  type         String // restaurant, cafe, nail_salon, beauty_salon, retail, ...
+  email        String
+  phone        String?
+  addressLine  String?
+  city         String?
+  country      String         @default("DE")
+  status       BusinessStatus @default(ACTIVE)
+  ownerId      String
+  currency     String         @default("EUR")
+  locale       String         @default("vi")
+  timezone     String         @default("Europe/Berlin")
+  onboardedAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  owner    User @relation("BusinessOwner", fields: [ownerId], references: [id])
+
+  branding         BusinessBranding?
+  setting          BusinessSetting?
+  subscription     Subscription?
+  branches         Branch[]
+  staff            StaffProfile[]
+  customers        CustomerProfile[]
+  tiers            MembershipTier[]
+  programs         LoyaltyProgram[]
+  transactions     Transaction[]
+  vouchers         Voucher[]
+  customerVouchers CustomerVoucher[]
+  rewards          Reward[]
+  redemptions      RewardRedemption[]
+  campaigns        Campaign[]
+  notifications    Notification[]
+  fraudAlerts      FraudAlert[]
+  auditLogs        AuditLog[]
+  invitations      Invitation[]
+  memberships      CustomerMembership[]
+  adjustments      TransactionAdjustment[]
+
+  whatsappConnection    WhatsAppConnection?
+  whatsappTemplates     WhatsAppTemplate[]
+  whatsappMessages      WhatsAppMessageLog[]
+  communicationConsents CustomerCommunicationConsent[]
+
+  @@index([status])
+}
+
+model BusinessBranding {
+  id           String   @id @default(cuid())
+  businessId   String   @unique
+  logoUrl      String?
+  coverUrl     String?
+  primaryColor String   @default("#2563eb")
+  accentColor  String   @default("#f97316")
+  customDomain String?  @unique
+  whiteLabel   Boolean  @default(false)
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model BusinessSetting {
+  id                    String   @id @default(cuid())
+  businessId            String   @unique
+  // Loyalty base rule: `amountPerPoint` EUR earns `pointsPerUnit` point(s).
+  amountPerPoint        Float    @default(1) // e.g. 1 -> 1€=1pt ; 10 -> 10€=1pt
+  pointsPerUnit         Int      @default(1)
+  rounding              String   @default("floor") // floor | round | ceil
+  minPointsPerTxn       Int      @default(0)
+  maxPointsPerTxn       Int?
+  maxPointsPerDay       Int?
+  signupBonus           Int      @default(0)
+  birthdayBonus         Int      @default(0)
+  referralBonus         Int      @default(0)
+  pointsExpiryDays      Int? // null = never expire
+  // Anti-fraud limits
+  largeTxnThreshold     Int      @default(500) // points; above -> needs approval / alert
+  maxTxnPerCustomerHour Int      @default(5)
+  business              Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+// ── Billing ──────────────────────────────────────────────────────────────────
+
+model Plan {
+  id            String   @id @default(cuid())
+  tier          PlanTier @unique
+  name          String
+  priceMonthly  Int // cents
+  maxBranches   Int
+  maxStaff      Int
+  maxCustomers  Int
+  features      String[] // feature keys enabled
+  createdAt     DateTime @default(now())
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  businessId         String             @unique
+  planId             String
+  status             SubscriptionStatus @default(TRIALING)
+  trialEndsAt        DateTime?
+  currentPeriodEnd   DateTime?
+  stripeCustomerId   String?
+  stripeSubscriptionId String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  plan     Plan     @relation(fields: [planId], references: [id])
+
+  @@index([status])
+}
+
+// ── Org structure ────────────────────────────────────────────────────────────
+
+model Branch {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  addressLine String?
+  city       String?
+  phone      String?
+  openingHours String?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  business     Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staff        StaffProfile[]
+  transactions Transaction[]
+
+  @@index([businessId])
+}
+
+model StaffProfile {
+  id            String   @id @default(cuid())
+  businessId    String
+  userId        String
+  branchId      String?
+  role          UserRole @default(STAFF) // STAFF | BUSINESS_MANAGER | BUSINESS_OWNER
+  pin           String? // hashed PIN for sensitive actions
+  maxPointsGrant Int? // per-transaction cap for this staff member
+  isActive      Boolean  @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime @default(now())
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch       Branch?       @relation(fields: [branchId], references: [id])
+  transactions Transaction[]
+
+  @@unique([businessId, userId])
+  @@index([businessId])
+}
+
+// ── Customers & membership ───────────────────────────────────────────────────
+
+model CustomerProfile {
+  id               String   @id @default(cuid())
+  businessId       String
+  userId           String?
+  memberCode       String // human-facing membership number, unique per business
+  qrSecret         String   @default(cuid()) // per-member secret rotated on demand
+  firstName        String
+  lastName         String?
+  email            String?
+  phone            String?
+  birthDate        DateTime?
+  gender           String?
+  locale           String   @default("vi")
+  pointsBalance    Int      @default(0)
+  totalEarned      Int      @default(0)
+  totalRedeemed    Int      @default(0)
+  visitCount       Int      @default(0)
+  marketingConsent Boolean  @default(false)
+  isBlocked        Boolean  @default(false)
+  isAnonymized     Boolean  @default(false)
+  joinedAt         DateTime @default(now())
+  lastVisitAt      DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  business         Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user             User?                @relation(fields: [userId], references: [id])
+  membership       CustomerMembership?
+  transactions     Transaction[]
+  customerVouchers CustomerVoucher[]
+  redemptions      RewardRedemption[]
+  campaignTargets  CampaignRecipient[]
+  communicationConsent CustomerCommunicationConsent?
+  whatsappMessages     WhatsAppMessageLog[]
+
+  @@unique([businessId, memberCode])
+  @@index([businessId])
+  @@index([businessId, phone])
+  @@index([businessId, email])
+}
+
+model MembershipTier {
+  id            String   @id @default(cuid())
+  businessId    String
+  name          String // Bronze / Silver / Gold / Platinum (renamable)
+  level         Int // ordering: 1,2,3,4
+  minPoints     Int // lifetime points threshold to reach this tier
+  pointsMultiplier Float @default(1.0)
+  color         String   @default("#a16207")
+  perks         String?
+  retentionDays Int? // how long tier is retained
+  createdAt     DateTime @default(now())
+
+  business    Business             @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  memberships CustomerMembership[]
+
+  @@unique([businessId, level])
+  @@index([businessId])
+}
+
+model CustomerMembership {
+  id         String           @id @default(cuid())
+  businessId String
+  customerId String           @unique
+  tierId     String
+  status     MembershipStatus @default(ACTIVE)
+  since      DateTime         @default(now())
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tier     MembershipTier  @relation(fields: [tierId], references: [id])
+
+  @@index([businessId])
+}
+
+// ── Loyalty program config ───────────────────────────────────────────────────
+
+model LoyaltyProgram {
+  id         String             @id @default(cuid())
+  businessId String
+  name       String
+  type       LoyaltyProgramType @default(SPEND_BASED)
+  isActive   Boolean            @default(true)
+  config     Json? // flexible per-type config (stamps needed, X/Y, etc.)
+  branchId   String? // null = all branches
+  createdAt  DateTime           @default(now())
+
+  business Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  rules    LoyaltyRule[]
+
+  @@index([businessId])
+}
+
+model LoyaltyRule {
+  id         String   @id @default(cuid())
+  programId  String
+  name       String
+  kind       String // signup | birthday | referral | product | double_points | time_window
+  value      Int      @default(0)
+  config     Json?
+  isActive   Boolean  @default(true)
+
+  program LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  @@index([programId])
+}
+
+// ── Transactions ─────────────────────────────────────────────────────────────
+
+model Transaction {
+  id             String            @id @default(cuid())
+  businessId     String
+  branchId       String?
+  customerId     String
+  staffId        String?
+  type           TransactionType
+  status         TransactionStatus @default(COMPLETED)
+  amount         Float? // invoice amount in EUR (for EARN)
+  points         Int // signed: + for earn/bonus, - for redeem
+  balanceBefore  Int
+  balanceAfter   Int
+  voucherId      String?
+  idempotencyKey String? // prevents double-submit
+  receiptRef     String? // invoice/receipt id; an invoice can be used once
+  note           String?
+  device         String?
+  ipAddress      String?
+  createdAt      DateTime          @default(now())
+
+  business    Business                @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch      Branch?                 @relation(fields: [branchId], references: [id])
+  customer    CustomerProfile         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  staff       StaffProfile?           @relation(fields: [staffId], references: [id])
+  adjustments TransactionAdjustment[]
+
+  @@unique([businessId, idempotencyKey])
+  @@unique([businessId, receiptRef])
+  @@index([businessId, createdAt])
+  @@index([businessId, customerId])
+  @@index([businessId, branchId])
+  @@index([businessId, staffId])
+}
+
+model TransactionAdjustment {
+  id            String   @id @default(cuid())
+  businessId    String
+  transactionId String
+  reason        String
+  pointsDelta   Int
+  performedById String // user id (manager/owner)
+  createdAt     DateTime @default(now())
+
+  business    Business    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([transactionId])
+}
+
+// ── Vouchers ─────────────────────────────────────────────────────────────────
+
+model Voucher {
+  id             String        @id @default(cuid())
+  businessId     String
+  code           String
+  title          String
+  description    String?
+  discountType   String        @default("percent") // percent | fixed | free_item
+  discountValue  Float         @default(0)
+  pointsCost     Int           @default(0)
+  quantity       Int? // null = unlimited
+  issuedCount    Int           @default(0)
+  perCustomerLimit Int         @default(1)
+  branchId       String? // null = all branches
+  requiredTierId String?
+  startsAt       DateTime?
+  expiresAt      DateTime?
+  status         VoucherStatus @default(DRAFT)
+  autoBirthday   Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+
+  business         Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customerVouchers CustomerVoucher[]
+
+  @@unique([businessId, code])
+  @@index([businessId, status])
+}
+
+model CustomerVoucher {
+  id         String                @id @default(cuid())
+  businessId String
+  voucherId  String
+  customerId String
+  status     CustomerVoucherStatus @default(ISSUED)
+  code       String                @unique // unique claim code
+  issuedAt   DateTime              @default(now())
+  redeemedAt DateTime?
+  expiresAt  DateTime?
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  voucher  Voucher         @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([customerId])
+}
+
+// ── Rewards catalog ──────────────────────────────────────────────────────────
+
+model Reward {
+  id          String       @id @default(cuid())
+  businessId  String
+  name        String
+  description String?
+  imageUrl    String?
+  pointsCost  Int
+  stock       Int? // null = unlimited
+  redeemLimit Int? // per customer
+  branchId    String?
+  expiresAt   DateTime?
+  status      RewardStatus @default(ACTIVE)
+  createdAt   DateTime     @default(now())
+
+  business    Business           @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  redemptions RewardRedemption[]
+
+  @@index([businessId, status])
+}
+
+model RewardRedemption {
+  id         String           @id @default(cuid())
+  businessId String
+  rewardId   String
+  customerId String
+  pointsSpent Int
+  status     RedemptionStatus @default(PENDING)
+  createdAt  DateTime         @default(now())
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  reward   Reward          @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([customerId])
+}
+
+// ── Marketing ────────────────────────────────────────────────────────────────
+
+model Campaign {
+  id          String         @id @default(cuid())
+  businessId  String
+  name        String
+  subject     String?
+  body        String?
+  audience    Json? // filter definition
+  channel     String         @default("email") // email | inapp
+  status      CampaignStatus @default(DRAFT)
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  openCount   Int            @default(0)
+  redeemCount Int            @default(0)
+  createdAt   DateTime       @default(now())
+
+  business   Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  recipients CampaignRecipient[]
+
+  @@index([businessId, status])
+}
+
+model CampaignRecipient {
+  id         String   @id @default(cuid())
+  campaignId String
+  customerId String
+  sentAt     DateTime?
+  openedAt   DateTime?
+
+  campaign Campaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, customerId])
+}
+
+// ── Notifications ────────────────────────────────────────────────────────────
+
+model Notification {
+  id         String           @id @default(cuid())
+  businessId String?
+  userId     String?
+  type       NotificationType
+  title      String
+  body       String?
+  data       Json?
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([businessId])
+}
+
+// ── Anti-fraud & audit ───────────────────────────────────────────────────────
+
+model FraudAlert {
+  id          String         @id @default(cuid())
+  businessId  String
+  level       FraudRiskLevel @default(LOW)
+  kind        String // rapid_txn | large_txn | self_grant | reused_receipt | ...
+  description String
+  metadata    Json?
+  resolvedAt  DateTime?
+  createdAt   DateTime       @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, level])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  businessId String?
+  userId     String?
+  action     String
+  entity     String
+  entityId   String?
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?     @relation(fields: [userId], references: [id])
+
+  @@index([businessId, createdAt])
+}
+
+model Invitation {
+  id         String           @id @default(cuid())
+  businessId String
+  email      String
+  role       UserRole         @default(STAFF)
+  branchId   String?
+  token      String           @unique
+  status     InvitationStatus @default(PENDING)
+  expiresAt  DateTime
+  createdAt  DateTime         @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model SupportTicket {
+  id         String              @id @default(cuid())
+  businessId String?
+  subject    String
+  body       String
+  status     SupportTicketStatus @default(OPEN)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@index([status])
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String?
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+// ── WhatsApp Business Platform (Meta Cloud API) ──────────────────────────────
+// All rows are tenant-scoped by `businessId`. Access tokens are stored ONLY as
+// AES-256-GCM ciphertext (see src/lib/crypto.ts) and never leave the server.
+
+model WhatsAppConnection {
+  id                 String                   @id @default(cuid())
+  businessId         String                   @unique
+  status             WhatsAppConnectionStatus @default(DISCONNECTED)
+  phoneNumberId      String? // Meta Phone Number ID
+  wabaId             String? // WhatsApp Business Account ID
+  displayPhoneNumber String? // human-readable sender number
+  accessTokenCipher  String? // AES-256-GCM "iv:tag:ciphertext" — NEVER sent to client
+  graphApiVersion    String                   @default("v21.0")
+  defaultLanguage    String                   @default("vi")
+  // Per-event opt-out toggles controlled by the business.
+  notifyOnEarn       Boolean                  @default(true)
+  notifyOnRedeem     Boolean                  @default(true)
+  notifyOnVoucher    Boolean                  @default(true)
+  lastError          String?
+  connectedAt        DateTime?
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model WhatsAppTemplate {
+  id               String   @id @default(cuid())
+  businessId       String
+  key              String // points_earned | reward_redeemed | voucher
+  language         String // vi | de | en
+  metaTemplateName String // approved template name on the Meta side
+  category         String   @default("UTILITY")
+  bodyPreview      String // local preview text with {{1}} placeholders
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, key, language])
+  @@index([businessId])
+}
+
+model WhatsAppMessageLog {
+  id                String                @id @default(cuid())
+  businessId        String
+  customerId        String?
+  kind              WhatsAppMessageKind
+  status            WhatsAppMessageStatus @default(QUEUED)
+  toPhone           String
+  language          String                @default("vi")
+  templateKey       String?
+  idempotencyKey    String // prevents duplicate sends
+  providerMessageId String? // wamid returned by Meta
+  transactionId     String?
+  payloadSnapshot   Json? // variables sent (for audit/preview)
+  error             String?
+  attempts          Int                   @default(0)
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  business Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer CustomerProfile? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@unique([businessId, idempotencyKey])
+  @@index([businessId, createdAt])
+  @@index([businessId, status])
+  @@index([businessId, customerId])
+  @@index([providerMessageId])
+}
+
+model CustomerCommunicationConsent {
+  id                     String    @id @default(cuid())
+  businessId             String
+  customerId             String    @unique
+  whatsappPhone          String? // E.164 override; falls back to customer.phone
+  // Transactional consent (points/redeem/voucher notices) is kept SEPARATE
+  // from marketing consent, per GDPR / WhatsApp policy.
+  whatsappTransactional  Boolean   @default(false)
+  whatsappMarketing      Boolean   @default(false)
+  transactionalConsentAt DateTime?
+  marketingConsentAt     DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}

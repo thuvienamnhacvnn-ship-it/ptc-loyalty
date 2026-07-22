@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { requireBusinessContext } from "@/lib/tenant";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
+import { MobileNav } from "@/components/dashboard/mobile-nav";
 
 // Dashboard pages are tenant-scoped and query the DB; never prerender at build.
 export const dynamic = "force-dynamic";
@@ -27,8 +28,9 @@ export default async function DashboardLayout({
           userEmail={ctx.user.email}
           role={ctx.role}
         />
-        <main className="flex-1 p-4 md:p-6">{children}</main>
+        <main className="flex-1 p-4 pb-24 md:p-6 md:pb-6">{children}</main>
       </div>
+      <MobileNav />
     </div>
   );
 }

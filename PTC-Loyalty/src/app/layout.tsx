@@ -15,6 +15,13 @@ export const metadata: Metadata = {
     "Nền tảng khách hàng thân thiết, tích điểm và voucher cho doanh nghiệp Việt tại Đức.",
   manifest: "/manifest.webmanifest",
   applicationName: "PTC Loyalty",
+  // iOS "Add to Home Screen" → full-screen, native-app-like standalone mode.
+  appleWebApp: {
+    capable: true,
+    title: "PTC Loyalty",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
@@ -24,6 +31,7 @@ export const viewport: Viewport = {
   ],
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

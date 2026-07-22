@@ -8,9 +8,12 @@ import {
   Ticket,
   Repeat,
   AlertTriangle,
+  ScanLine,
+  BarChart3,
 } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireBusinessContext } from "@/lib/tenant";
+import { hasAtLeast } from "@/lib/rbac";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { ActivityChart, type ChartPoint } from "@/components/dashboard/activity-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -106,8 +109,45 @@ export default async function DashboardOverview() {
   }
   const chartData = Array.from(buckets.values());
 
+  const canReports = hasAtLeast(ctx.role, "BUSINESS_MANAGER");
+  const secondaryActions = [
+    { href: "/dashboard/customers", icon: Users, label: "Khách hàng", desc: "Danh sách & thêm mới" },
+    { href: "/dashboard/transactions", icon: Receipt, label: "Giao dịch", desc: "Lịch sử điểm" },
+    canReports
+      ? { href: "/dashboard/reports", icon: BarChart3, label: "Báo cáo", desc: "Doanh thu & khách" }
+      : { href: "/dashboard/rewards", icon: Gift, label: "Quà tặng", desc: "Đổi thưởng" },
+  ];
+
   return (
     <div className="space-y-6">
+      {/* Quick actions — big, thumb-friendly, no menu digging */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Link href="/dashboard/scanner" className="sm:col-span-2 lg:col-span-1">
+          <div className="flex h-full min-h-[92px] items-center gap-4 rounded-2xl bg-gradient-to-br from-primary to-accent p-5 text-white shadow-lg shadow-primary/25 transition-transform hover:-translate-y-0.5 active:scale-[0.99]">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-white/20">
+              <ScanLine className="h-6 w-6" />
+            </span>
+            <div>
+              <div className="text-lg font-bold leading-tight">Quét mã QR</div>
+              <div className="text-sm text-white/85">Cộng điểm cho khách ngay</div>
+            </div>
+          </div>
+        </Link>
+        {secondaryActions.map((a) => (
+          <Link key={a.href} href={a.href}>
+            <div className="flex h-full min-h-[92px] items-center gap-4 rounded-2xl border bg-card p-5 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md active:scale-[0.99]">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <a.icon className="h-6 w-6" />
+              </span>
+              <div>
+                <div className="font-semibold leading-tight">{a.label}</div>
+                <div className="text-sm text-muted-foreground">{a.desc}</div>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+
       {openAlerts > 0 && (
         <Link href="/dashboard/transactions">
           <div className="flex items-center gap-2 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">

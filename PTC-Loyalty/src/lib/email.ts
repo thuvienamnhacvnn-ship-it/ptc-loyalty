@@ -62,6 +62,54 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
   }
 }
 
+function shell(inner: string): string {
+  return `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0f172a">${inner}</div>`;
+}
+
+/** Birthday greeting; includes a voucher code + expiry when one was issued. */
+export function birthdayEmailHtml(input: {
+  name: string;
+  storeName: string;
+  voucherCode?: string | null;
+  voucherTitle?: string | null;
+  expires?: string | null;
+}): string {
+  const voucher = input.voucherCode
+    ? `<div style="margin:16px 0;padding:16px;border:1px dashed #f97316;border-radius:12px;text-align:center">
+         <div style="color:#475569;font-size:13px">${input.voucherTitle ?? "Ưu đãi sinh nhật"}</div>
+         <div style="font-size:22px;font-weight:800;letter-spacing:1px;color:#ea580c">${input.voucherCode}</div>
+         ${input.expires ? `<div style="color:#94a3b8;font-size:12px">Dùng trước ${input.expires}</div>` : ""}
+       </div>`
+    : "";
+  return shell(`
+    <h2 style="margin:0 0 8px">🎂 Chúc mừng sinh nhật, ${input.name}!</h2>
+    <p style="margin:0 0 12px;color:#475569">
+      ${input.storeName} chúc bạn một ngày sinh nhật thật vui vẻ và hạnh phúc.
+    </p>
+    ${voucher}
+    <p style="margin:0;color:#475569">Hẹn gặp bạn sớm! ❤️</p>`);
+}
+
+/** "We miss you" win-back email for inactive customers. */
+export function winbackEmailHtml(input: {
+  name: string;
+  storeName: string;
+  pointsBalance: number;
+  url?: string | null;
+}): string {
+  const cta = input.url
+    ? `<p style="margin:16px 0"><a href="${input.url}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">Xem ưu đãi</a></p>`
+    : "";
+  return shell(`
+    <h2 style="margin:0 0 8px">Chúng tôi nhớ bạn 👋</h2>
+    <p style="margin:0 0 12px;color:#475569">
+      Chào ${input.name}, đã lâu rồi bạn chưa ghé ${input.storeName}. Bạn đang có
+      <b>${input.pointsBalance} điểm</b> — quay lại để tích thêm và đổi quà nhé!
+    </p>
+    ${cta}
+    <p style="margin:0;color:#94a3b8;font-size:12px">Hẹn gặp lại bạn sớm.</p>`);
+}
+
 /** Password-reset email body (kept simple + inline-styled for mail clients). */
 export function passwordResetEmailHtml(name: string, link: string): string {
   const greeting = name ? `Xin chào ${name},` : "Xin chào,";

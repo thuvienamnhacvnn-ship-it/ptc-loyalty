@@ -2,5 +2,9 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "prisma generate && next build",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "crons": [
+    { "path": "/api/cron/birthday", "schedule": "0 8 * * *" },
+    { "path": "/api/cron/winback", "schedule": "0 9 * * *" }
+  ]
 }

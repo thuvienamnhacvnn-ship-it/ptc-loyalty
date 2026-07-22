@@ -432,6 +432,8 @@ model CustomerProfile {
   isAnonymized     Boolean  @default(false)
   joinedAt         DateTime @default(now())
   lastVisitAt      DateTime?
+  lastReengagedAt  DateTime? // last win-back email sent (dedup per inactivity episode)
+  lastBirthdayGreetingAt DateTime? // last birthday greeting sent (dedup per year)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

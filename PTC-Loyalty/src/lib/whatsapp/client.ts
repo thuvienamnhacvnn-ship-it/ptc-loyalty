@@ -163,6 +163,40 @@ export function sendImageMessage(
   });
 }
 
+/**
+ * Send an approved template whose HEADER is an image (business-initiated, works
+ * OUTSIDE the 24h window). `headerImageMediaId` is an uploaded media id (see
+ * uploadImageMedia); `bodyParams` fill the template body's {{1}}, {{2}}, … (pass
+ * [] if the template body has no variables).
+ */
+export function sendImageTemplate(
+  creds: WhatsAppCredentials,
+  to: string,
+  templateName: string,
+  languageCode: string,
+  headerImageMediaId: string,
+  bodyParams: string[],
+): Promise<SendResult> {
+  const components: Array<Record<string, unknown>> = [
+    {
+      type: "header",
+      parameters: [{ type: "image", image: { id: headerImageMediaId } }],
+    },
+  ];
+  if (bodyParams.length > 0) {
+    components.push({
+      type: "body",
+      parameters: bodyParams.map<TemplateParam>((text) => ({ type: "text", text })),
+    });
+  }
+  return post(creds, {
+    messaging_product: "whatsapp",
+    to: normalizePhone(to),
+    type: "template",
+    template: { name: templateName, language: { code: languageCode }, components },
+  });
+}
+
 /** Send a plain text message (only valid inside the 24h customer window). */
 export function sendTextMessage(
   creds: WhatsAppCredentials,

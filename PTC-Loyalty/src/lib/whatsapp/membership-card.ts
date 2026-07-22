@@ -4,6 +4,7 @@ import { createStaticQrToken } from "@/lib/qr";
 import {
   sendImageMessage,
   sendImageMessageByMediaId,
+  sendImageTemplate,
   sendTextMessage,
   uploadImageMedia,
   type WhatsAppCredentials,
@@ -50,18 +51,39 @@ export async function sendMemberCardWhatsApp(input: {
       `Mã thành viên: *${input.memberCode}*\n\n` +
       `Đưa mã QR này mỗi lần đến để tích điểm và nhận ưu đãi. Bạn có thể lưu lại ảnh này.`;
 
-    // Prefer uploading the PNG as media (Meta doesn't have to fetch our URL);
-    // fall back to the public image link if the upload fails.
+    // Upload the QR PNG as media (Meta doesn't have to fetch our URL).
     const png = await QRCode.toBuffer(token, { errorCorrectionLevel: "M", margin: 2, width: 512 });
     const uploaded = await uploadImageMedia(creds, new Uint8Array(png));
-    const result = uploaded.ok
-      ? await sendImageMessageByMediaId(creds, input.toPhone, uploaded.mediaId, caption)
-      : await sendImageMessage(
-          creds,
-          input.toPhone,
-          `${appUrl()}/api/member/card?token=${encodeURIComponent(token)}`,
-          caption,
-        );
+
+    // Delivery strategy:
+    //  1) If an approved image-header template is configured → send the TEMPLATE
+    //     (business-initiated, works for ANY new customer, no 24h window).
+    //  2) Else send the image by media id (free-form; needs 24h window / test #).
+    //  3) If the upload failed, fall back to the public image link.
+    const templateName = process.env.WHATSAPP_MEMBER_TEMPLATE;
+    const templateLang = process.env.WHATSAPP_MEMBER_TEMPLATE_LANG || "vi";
+
+    let result;
+    if (uploaded.ok && templateName) {
+      // Template body variables: {{1}} = tên khách, {{2}} = mã thành viên.
+      result = await sendImageTemplate(
+        creds,
+        input.toPhone,
+        templateName,
+        templateLang,
+        uploaded.mediaId,
+        [input.name, input.memberCode],
+      );
+    } else if (uploaded.ok) {
+      result = await sendImageMessageByMediaId(creds, input.toPhone, uploaded.mediaId, caption);
+    } else {
+      result = await sendImageMessage(
+        creds,
+        input.toPhone,
+        `${appUrl()}/api/member/card?token=${encodeURIComponent(token)}`,
+        caption,
+      );
+    }
     return result.ok ? { ok: true } : { ok: false, error: result.error };
   } catch (e) {
     console.error("[membership-card] send failed:", e instanceof Error ? e.message : e);

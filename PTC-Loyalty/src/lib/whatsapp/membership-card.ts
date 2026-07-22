@@ -1,6 +1,13 @@
+import QRCode from "qrcode";
 import { db } from "@/lib/db";
 import { createStaticQrToken } from "@/lib/qr";
-import { sendImageMessage, sendTextMessage, type WhatsAppCredentials } from "./client";
+import {
+  sendImageMessage,
+  sendImageMessageByMediaId,
+  sendTextMessage,
+  uploadImageMedia,
+  type WhatsAppCredentials,
+} from "./client";
 
 // Sends a new member their QR membership card over WhatsApp, right after signup.
 // Uses the env WHATSAPP_ACCESS_TOKEN + Phone Number ID (single-business setup).
@@ -37,14 +44,24 @@ export async function sendMemberCardWhatsApp(input: {
       memberCode: input.memberCode,
       secret: input.qrSecret,
     });
-    const imageUrl = `${appUrl()}/api/member/card?token=${encodeURIComponent(token)}`;
     const caption =
       `🎉 *${input.storeName}*\n` +
       `Chào ${input.name}! Đây là thẻ thành viên của bạn.\n` +
       `Mã thành viên: *${input.memberCode}*\n\n` +
       `Đưa mã QR này mỗi lần đến để tích điểm và nhận ưu đãi. Bạn có thể lưu lại ảnh này.`;
 
-    const result = await sendImageMessage(creds, input.toPhone, imageUrl, caption);
+    // Prefer uploading the PNG as media (Meta doesn't have to fetch our URL);
+    // fall back to the public image link if the upload fails.
+    const png = await QRCode.toBuffer(token, { errorCorrectionLevel: "M", margin: 2, width: 512 });
+    const uploaded = await uploadImageMedia(creds, new Uint8Array(png));
+    const result = uploaded.ok
+      ? await sendImageMessageByMediaId(creds, input.toPhone, uploaded.mediaId, caption)
+      : await sendImageMessage(
+          creds,
+          input.toPhone,
+          `${appUrl()}/api/member/card?token=${encodeURIComponent(token)}`,
+          caption,
+        );
     return result.ok ? { ok: true } : { ok: false, error: result.error };
   } catch (e) {
     console.error("[membership-card] send failed:", e instanceof Error ? e.message : e);

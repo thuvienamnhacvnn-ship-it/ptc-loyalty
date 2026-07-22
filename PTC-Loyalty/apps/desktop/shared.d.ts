@@ -10,6 +10,7 @@ import type {
   PosSessionInfo,
   PosTransactionResult,
   PosVoucherRedeemResult,
+  PosWhatsAppMessage,
 } from "@shared/contract";
 
 export interface AppSettings {
@@ -60,6 +61,15 @@ export interface PosBridge {
   customerQr(
     id: string,
   ): Promise<{ ok: true; qr: { token: string; dataUrl: string } } | Fail>;
+
+  whatsappMessages(
+    limit?: number,
+  ): Promise<{ ok: true; messages: PosWhatsAppMessage[] } | Fail>;
+  whatsappSend(input: {
+    to: string;
+    message: string;
+    customerId?: string;
+  }): Promise<{ ok: true; messageId: string } | Fail>;
   preview(
     customerId: string,
     amount: number,

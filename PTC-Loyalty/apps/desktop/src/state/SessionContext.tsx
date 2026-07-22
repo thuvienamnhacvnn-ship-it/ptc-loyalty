@@ -10,7 +10,7 @@ import {
 } from "react";
 import type { PosSessionInfo } from "@shared/contract";
 
-export type Phase = "loading" | "login" | "branch" | "pos" | "settings";
+export type Phase = "loading" | "login" | "branch" | "pos" | "settings" | "whatsapp";
 
 interface SessionState {
   phase: Phase;

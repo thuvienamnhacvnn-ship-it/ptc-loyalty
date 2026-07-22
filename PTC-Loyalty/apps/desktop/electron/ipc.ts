@@ -212,6 +212,30 @@ export async function initIpc(getWindow: () => BrowserWindow | null): Promise<vo
       : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
   });
 
+  ipcMain.handle("pos:whatsappMessages", async (_e, limit?: number) => {
+    const res = await session.authed<{ messages: unknown[] }>(
+      await baseUrl(),
+      `/api/pos/whatsapp/messages?limit=${limit ?? 50}`,
+    );
+    return res.ok
+      ? { ok: true as const, messages: res.data.messages }
+      : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+  });
+
+  ipcMain.handle(
+    "pos:whatsappSend",
+    async (_e, input: { to: string; message: string; customerId?: string }) => {
+      const res = await session.authed<{ ok: boolean; messageId: string }>(
+        await baseUrl(),
+        "/api/pos/whatsapp/send",
+        { method: "POST", body: input },
+      );
+      return res.ok
+        ? { ok: true as const, messageId: res.data.messageId }
+        : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+    },
+  );
+
   ipcMain.handle("pos:rewards", async () => {
     const res = await session.authed<PosReward[]>(await baseUrl(), "/api/pos/rewards");
     return res.ok

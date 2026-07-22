@@ -6,6 +6,7 @@ import { LoginScreen } from "./screens/LoginScreen";
 import { BranchSelectScreen } from "./screens/BranchSelectScreen";
 import { PosScreen } from "./screens/PosScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
+import { WhatsAppScreen } from "./screens/WhatsAppScreen";
 
 function UpdateBanner() {
   const [msg, setMsg] = useState<string | null>(null);
@@ -47,7 +48,7 @@ function Router() {
       <TopBar />
       <UpdateBanner />
       <div className="content">
-        <PosScreen />
+        {phase === "whatsapp" ? <WhatsAppScreen /> : <PosScreen />}
       </div>
     </div>
   );

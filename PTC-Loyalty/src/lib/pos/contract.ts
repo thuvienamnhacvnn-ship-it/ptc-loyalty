@@ -126,6 +126,21 @@ export interface PosVoucherRedeemResult {
   title: string;
 }
 
+/** A WhatsApp message row for the POS/desktop conversation view. */
+export interface PosWhatsAppMessage {
+  id: string;
+  kind: string;
+  status: string;
+  direction: string; // "INBOUND" | "OUTBOUND"
+  toPhone: string;
+  fromPhone: string | null;
+  text: string;
+  customerId: string | null;
+  customerName: string | null;
+  error: string | null;
+  createdAt: string;
+}
+
 /** Uniform error envelope returned by every POS endpoint on failure. */
 export interface PosErrorBody {
   error: string; // machine code, e.g. "unauthorized", "customer_not_found"

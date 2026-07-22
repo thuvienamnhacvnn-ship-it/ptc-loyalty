@@ -1,4 +1,4 @@
-import { Maximize, Settings, LogOut, Store, Wifi, WifiOff, Inbox } from "lucide-react";
+import { Maximize, Settings, LogOut, Store, Wifi, WifiOff, Inbox, MessageCircle, Coins } from "lucide-react";
 import { useSession } from "../state/SessionContext";
 
 export function TopBar() {
@@ -35,6 +35,13 @@ export function TopBar() {
         <br />
         {s.session.user.role}
       </div>
+      <button
+        className="ghost"
+        title={s.phase === "whatsapp" ? "Màn hình bán hàng" : "WhatsApp"}
+        onClick={() => s.setPhase(s.phase === "whatsapp" ? "pos" : "whatsapp")}
+      >
+        {s.phase === "whatsapp" ? <Coins size={16} /> : <MessageCircle size={16} />}
+      </button>
       <button className="ghost" title="Toàn màn hình" onClick={() => window.pos.toggleFullscreen()}>
         <Maximize size={16} />
       </button>

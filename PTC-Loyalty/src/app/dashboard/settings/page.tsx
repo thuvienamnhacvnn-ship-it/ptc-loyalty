@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SettingsForms } from "./settings-forms";
+import { ChangePasswordCard } from "./change-password-card";
 
 export const metadata: Metadata = { title: "Cài đặt" };
 
@@ -64,6 +65,8 @@ export default async function SettingsPage() {
           logoUrl: business.branding?.logoUrl ?? null,
         }}
       />
+
+      <ChangePasswordCard />
     </div>
   );
 }

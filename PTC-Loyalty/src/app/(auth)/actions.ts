@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "node:crypto";
 import { AuthError } from "next-auth";
 import { Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -12,6 +13,7 @@ import {
   generateUniqueBusinessSlug,
 } from "@/lib/provision";
 import { homeForRole } from "@/lib/rbac";
+import { sendEmail, passwordResetEmailHtml } from "@/lib/email";
 
 export async function logout() {
   await signOut({ redirectTo: "/" });
@@ -20,6 +22,107 @@ export async function logout() {
 export interface ActionState {
   error?: string;
   fieldErrors?: Record<string, string[]>;
+}
+
+// ── Password reset (forgot → email link → reset) ─────────────────────────────
+
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/** We store only the SHA-256 of the reset token, so a DB leak cannot reset
+ *  anyone's password. The raw token lives only in the emailed link. */
+function hashResetToken(raw: string): string {
+  return crypto.createHash("sha256").update(raw).digest("hex");
+}
+
+function appUrl(): string {
+  return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+}
+
+export interface ResetRequestState extends ActionState {
+  sent?: boolean;
+}
+
+const forgotSchema = z.object({ email: z.string().email("Email không hợp lệ") });
+
+/** Step 1: user submits their email → we email a time-boxed reset link. */
+export async function requestPasswordReset(
+  _prev: ResetRequestState,
+  formData: FormData,
+): Promise<ResetRequestState> {
+  const parsed = forgotSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  const email = parsed.data.email.toLowerCase();
+
+  const user = await db.user.findUnique({
+    where: { email },
+    select: { id: true, name: true, isActive: true },
+  });
+
+  // Only actually send when the account exists & is active — but ALWAYS return
+  // the same success state so we never leak which emails are registered.
+  if (user && user.isActive) {
+    const raw = crypto.randomBytes(32).toString("base64url");
+    const expires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+
+    // One active reset token per email: drop older ones, store the new hash.
+    await db.verificationToken.deleteMany({ where: { identifier: email } });
+    await db.verificationToken.create({
+      data: { identifier: email, token: hashResetToken(raw), expires },
+    });
+
+    const link = `${appUrl()}/reset-password?token=${raw}&email=${encodeURIComponent(email)}`;
+    await sendEmail({
+      to: email,
+      subject: "Đặt lại mật khẩu — PTC Loyalty",
+      text: `Đặt lại mật khẩu (hết hạn sau 1 giờ): ${link}`,
+      html: passwordResetEmailHtml(user.name ?? "", link),
+    });
+  }
+
+  return { sent: true };
+}
+
+export interface ResetPasswordState extends ActionState {
+  done?: boolean;
+}
+
+const resetSchema = z.object({
+  email: z.string().email(),
+  token: z.string().min(1),
+  password: z.string().min(8, "Mật khẩu tối thiểu 8 ký tự"),
+});
+
+/** Step 2: user submits a new password with the token from the email link. */
+export async function resetPassword(
+  _prev: ResetPasswordState,
+  formData: FormData,
+): Promise<ResetPasswordState> {
+  const parsed = resetSchema.safeParse({
+    email: formData.get("email"),
+    token: formData.get("token"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) return { fieldErrors: parsed.error.flatten().fieldErrors };
+  const email = parsed.data.email.toLowerCase();
+
+  const record = await db.verificationToken.findUnique({
+    where: {
+      identifier_token: { identifier: email, token: hashResetToken(parsed.data.token) },
+    },
+  });
+  if (!record || record.expires < new Date()) {
+    return { error: "Liên kết không hợp lệ hoặc đã hết hạn. Vui lòng yêu cầu lại." };
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  // Update the hash (used by BOTH web login and desktop POS login) and consume
+  // every reset token for this email in one atomic step (single-use).
+  await db.$transaction([
+    db.user.update({ where: { email }, data: { passwordHash } }),
+    db.verificationToken.deleteMany({ where: { identifier: email } }),
+  ]);
+
+  return { done: true };
 }
 
 const loginSchema = z.object({

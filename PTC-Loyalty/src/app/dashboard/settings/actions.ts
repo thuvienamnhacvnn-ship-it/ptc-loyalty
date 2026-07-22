@@ -1,14 +1,56 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { requireBusinessContext } from "@/lib/tenant";
+import { requireBusinessContext, requireUser } from "@/lib/tenant";
 import { hasAtLeast } from "@/lib/rbac";
 
 export interface FormResult {
   ok: boolean;
   error?: string;
+}
+
+// ── Account security: change password (while signed in) ──────────────────────
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Nhập mật khẩu hiện tại"),
+  newPassword: z.string().min(8, "Mật khẩu mới tối thiểu 8 ký tự"),
+});
+
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<FormResult> {
+  const sessionUser = await requireUser();
+  const parsed = changePasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message };
+  }
+  const { currentPassword, newPassword } = parsed.data;
+
+  const user = await db.user.findUnique({
+    where: { id: sessionUser.id },
+    select: { passwordHash: true },
+  });
+  if (!user?.passwordHash) {
+    return { ok: false, error: "Tài khoản chưa đặt mật khẩu." };
+  }
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) return { ok: false, error: "Mật khẩu hiện tại không đúng." };
+  if (currentPassword === newPassword) {
+    return { ok: false, error: "Mật khẩu mới phải khác mật khẩu cũ." };
+  }
+
+  // New hash applies to BOTH web and desktop (POS) login.
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await db.user.update({
+    where: { id: sessionUser.id },
+    data: { passwordHash },
+  });
+  return { ok: true };
 }
 
 const loyaltySchema = z.object({

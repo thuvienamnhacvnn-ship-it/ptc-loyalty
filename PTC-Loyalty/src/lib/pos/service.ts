@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { calculateEarnedPoints, type PointsRule } from "@/lib/points";
 import { verifyQrToken } from "@/lib/qr";
 import { generateMemberCode } from "@/lib/utils";
+import { findCustomerConflict } from "@/lib/customer-dedup";
 import type { PosContext } from "@/lib/pos/context";
 import type {
   PosCustomer,
@@ -101,6 +102,13 @@ export async function createPosCustomer(
 ): Promise<CreateCustomerResult> {
   const firstName = input.firstName?.trim();
   if (!firstName) return { ok: false, error: "bad_request" };
+
+  const conflict = await findCustomerConflict(ctx.businessId, {
+    phone: input.phone,
+    email: input.email,
+  });
+  if (conflict === "phone") return { ok: false, error: "phone_taken" };
+  if (conflict === "email") return { ok: false, error: "email_taken" };
 
   const bd = input.birthDate ? new Date(input.birthDate) : null;
   const created = await db.customerProfile.create({

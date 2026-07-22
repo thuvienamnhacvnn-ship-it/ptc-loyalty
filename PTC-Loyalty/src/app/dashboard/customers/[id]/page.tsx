@@ -82,6 +82,15 @@ export default async function CustomerDetailPage({
           isBlocked={customer.isBlocked}
           canManage={canManage}
           canOwn={canOwn}
+          customer={{
+            firstName: customer.firstName,
+            lastName: customer.lastName,
+            phone: customer.phone,
+            email: customer.email,
+            birthDate: customer.birthDate
+              ? customer.birthDate.toISOString().slice(0, 10)
+              : null,
+          }}
         />
       </div>
 

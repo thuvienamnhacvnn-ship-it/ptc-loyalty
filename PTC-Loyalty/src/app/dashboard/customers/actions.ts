@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireBusinessContext } from "@/lib/tenant";
@@ -9,6 +10,7 @@ import { adjustPoints } from "@/lib/transactions";
 import { generateMemberCode } from "@/lib/utils";
 import { renderMemberQrPng } from "@/lib/member-qr";
 import { sendMemberCardWhatsApp } from "@/lib/whatsapp/membership-card";
+import { findCustomerConflict } from "@/lib/customer-dedup";
 
 export interface FormResult {
   ok: boolean;
@@ -156,6 +158,11 @@ export async function createCustomer(
   const d = parsed.data;
   const birthDate = d.birthDate ? new Date(d.birthDate) : null;
 
+  // Reject duplicate phone / email within this business.
+  const conflict = await findCustomerConflict(ctx.businessId, { phone: d.phone, email: d.email });
+  if (conflict === "phone") return { ok: false, error: "Số điện thoại này đã được đăng ký." };
+  if (conflict === "email") return { ok: false, error: "Email này đã được đăng ký." };
+
   // memberCode + qrSecret (schema default cuid) are generated automatically, so
   // every new customer immediately has a unique, fixed membership QR.
   const created = await db.customerProfile.create({
@@ -193,4 +200,111 @@ export async function createCustomer(
   }
 
   return { ok: true, customerId: created.id, whatsapp };
+}
+
+// ── Edit customer ─────────────────────────────────────────────────────────────
+
+const updateSchema = z.object({
+  customerId: z.string().min(1),
+  firstName: z.string().trim().min(1, "Nhập tên"),
+  lastName: z.string().trim().optional(),
+  phone: z.string().trim().optional(),
+  email: z.string().email("Email không hợp lệ").optional().or(z.literal("")),
+  birthDate: z.string().trim().optional(),
+});
+
+export async function updateCustomer(
+  input: z.infer<typeof updateSchema>,
+): Promise<FormResult> {
+  const ctx = await requireBusinessContext();
+  if (!hasAtLeast(ctx.role, "BUSINESS_MANAGER")) {
+    return { ok: false, error: "Bạn không có quyền sửa khách hàng." };
+  }
+  const parsed = updateSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
+  const d = parsed.data;
+
+  const existing = await db.customerProfile.findFirst({
+    where: { id: d.customerId, businessId: ctx.businessId },
+    select: { id: true },
+  });
+  if (!existing) return { ok: false, error: "Không tìm thấy khách hàng." };
+
+  const conflict = await findCustomerConflict(ctx.businessId, {
+    phone: d.phone,
+    email: d.email,
+    excludeId: d.customerId,
+  });
+  if (conflict === "phone") return { ok: false, error: "Số điện thoại này đã được đăng ký." };
+  if (conflict === "email") return { ok: false, error: "Email này đã được đăng ký." };
+
+  const bd = d.birthDate ? new Date(d.birthDate) : null;
+  await db.customerProfile.update({
+    where: { id: d.customerId },
+    data: {
+      firstName: d.firstName,
+      lastName: d.lastName || null,
+      phone: d.phone || null,
+      email: d.email || null,
+      birthDate: bd && !Number.isNaN(bd.getTime()) ? bd : null,
+    },
+  });
+  revalidatePath(`/dashboard/customers/${d.customerId}`);
+  return { ok: true };
+}
+
+// ── Delete customer (requires password confirmation) ──────────────────────────
+
+export async function deleteCustomer(
+  customerId: string,
+  password: string,
+): Promise<FormResult> {
+  const ctx = await requireBusinessContext();
+  if (!hasAtLeast(ctx.role, "BUSINESS_OWNER")) {
+    return { ok: false, error: "Chỉ chủ doanh nghiệp mới được xóa khách hàng." };
+  }
+  if (!password) return { ok: false, error: "Nhập mật khẩu để xác nhận." };
+
+  // Confirm the acting owner's password before a destructive delete.
+  const user = await db.user.findUnique({
+    where: { id: ctx.user.id },
+    select: { passwordHash: true },
+  });
+  if (!user?.passwordHash) return { ok: false, error: "Tài khoản chưa đặt mật khẩu." };
+  const valid = await bcrypt.compare(password, user.passwordHash);
+  if (!valid) return { ok: false, error: "Mật khẩu không đúng." };
+
+  const customer = await db.customerProfile.findFirst({
+    where: { id: customerId, businessId: ctx.businessId },
+    select: { id: true, userId: true },
+  });
+  if (!customer) return { ok: false, error: "Không tìm thấy khách hàng." };
+
+  await db.$transaction(async (tx) => {
+    // Cascades transactions, vouchers, redemptions, membership, etc.
+    await tx.customerProfile.delete({ where: { id: customer.id } });
+    // Remove an orphan self-service CUSTOMER account with no other memberships.
+    if (customer.userId) {
+      const others = await tx.customerProfile.count({ where: { userId: customer.userId } });
+      if (others === 0) {
+        const u = await tx.user.findUnique({
+          where: { id: customer.userId },
+          select: { role: true },
+        });
+        if (u?.role === "CUSTOMER") await tx.user.delete({ where: { id: customer.userId } });
+      }
+    }
+    await tx.auditLog.create({
+      data: {
+        businessId: ctx.businessId,
+        userId: ctx.user.id,
+        action: "customer.delete",
+        entity: "CustomerProfile",
+        entityId: customerId,
+      },
+    });
+  });
+
+  revalidatePath("/dashboard/customers");
+  return { ok: true };
 }

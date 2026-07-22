@@ -170,5 +170,7 @@ export const POS_ERROR_MESSAGES: Record<string, string> = {
   qr_other_business: "Mã QR thuộc doanh nghiệp khác.",
   qr_revoked: "Mã QR đã bị thu hồi.",
   bad_request: "Yêu cầu không hợp lệ.",
+  phone_taken: "Số điện thoại này đã được đăng ký.",
+  email_taken: "Email này đã được đăng ký.",
   server_error: "Lỗi máy chủ. Vui lòng thử lại.",
 };

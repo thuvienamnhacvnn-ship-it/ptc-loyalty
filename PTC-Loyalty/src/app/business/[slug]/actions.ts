@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { signIn } from "@/auth";
 import { generateMemberCode } from "@/lib/utils";
 import { recalcTier } from "@/lib/transactions";
+import { findCustomerConflict } from "@/lib/customer-dedup";
 
 export interface JoinState {
   error?: string;
@@ -58,6 +59,15 @@ export async function joinBusiness(
     });
     if (already) return { error: "Email đã là thành viên. Vui lòng đăng nhập." };
     return { error: "Email đã được sử dụng. Vui lòng đăng nhập." };
+  }
+
+  // Reject duplicate phone / email already used by a customer of this business.
+  const conflict = await findCustomerConflict(business.id, { phone: d.phone, email });
+  if (conflict === "phone") {
+    return { fieldErrors: { phone: ["Số điện thoại này đã được đăng ký."] } };
+  }
+  if (conflict === "email") {
+    return { fieldErrors: { email: ["Email này đã được đăng ký."] } };
   }
 
   const passwordHash = await bcrypt.hash(d.password, 10);

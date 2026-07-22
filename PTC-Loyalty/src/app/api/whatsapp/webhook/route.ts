@@ -19,15 +19,20 @@ const VERIFY_TOKEN =
   process.env.WHATSAPP_WEBHOOK_VERIFY_TOKEN || "ptc_loyalty_2026";
 
 // ── GET: subscription verification handshake ─────────────────────────────────
-// Meta calls this once when you save the webhook. If the token matches, we must
-// echo back the raw `hub.challenge` value with HTTP 200.
+// Meta calls this once when you save the webhook, with:
+//   ?hub.mode=subscribe&hub.verify_token=<token>&hub.challenge=<challenge>
+// If the token matches we MUST echo back the raw `hub.challenge` with HTTP 200.
 export async function GET(req: NextRequest) {
   const params = req.nextUrl.searchParams;
   const mode = params.get("hub.mode");
   const token = params.get("hub.verify_token");
   const challenge = params.get("hub.challenge");
 
-  if (mode === "subscribe" && token === VERIFY_TOKEN && challenge) {
+  // .trim() guards against an accidental trailing space in the Meta token field.
+  const tokenMatches = (token ?? "").trim() === VERIFY_TOKEN.trim();
+
+  // 1) Meta verification handshake — echo the challenge back verbatim.
+  if (mode === "subscribe" && tokenMatches && challenge) {
     console.log("[whatsapp-webhook] ✅ verification succeeded");
     return new NextResponse(challenge, {
       status: 200,
@@ -35,11 +40,21 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  console.warn("[whatsapp-webhook] ❌ verification failed", {
-    mode,
-    tokenMatches: token === VERIFY_TOKEN,
-  });
-  return new NextResponse("Forbidden", { status: 403 });
+  // 2) A real verification attempt but with a WRONG token — reject (security).
+  //    A correctly-configured Meta webhook never reaches this branch.
+  if (mode === "subscribe") {
+    console.warn("[whatsapp-webhook] ❌ verify_token mismatch");
+    return new NextResponse("Verification failed: invalid verify_token", {
+      status: 403,
+    });
+  }
+
+  // 3) Any other GET (e.g. opening the URL in a browser) — friendly 200 so the
+  //    endpoint doesn't look broken. This is NOT the path Meta uses.
+  return new NextResponse(
+    "WhatsApp webhook is active. Verification is handled via hub.* query params.",
+    { status: 200, headers: { "Content-Type": "text/plain" } },
+  );
 }
 
 // Minimal shape of an inbound WhatsApp notification (only what we log).

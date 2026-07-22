@@ -9,6 +9,7 @@
 // /api/webhooks/whatsapp. This endpoint is the simpler verify + message-log one.
 
 import { NextRequest, NextResponse } from "next/server";
+import { persistInboundMessage } from "@/lib/whatsapp/inbound";
 
 export const runtime = "nodejs";
 
@@ -57,14 +58,17 @@ export async function GET(req: NextRequest) {
   );
 }
 
-// Minimal shape of an inbound WhatsApp notification (only what we log).
+// Minimal shape of an inbound WhatsApp notification (only what we use).
 type WhatsAppWebhookBody = {
   entry?: Array<{
     changes?: Array<{
       value?: {
+        metadata?: { phone_number_id?: string };
         messages?: Array<{
+          id?: string;
           from?: string;
           type?: string;
+          timestamp?: string;
           text?: { body?: string };
         }>;
       };
@@ -87,15 +91,26 @@ export async function POST(req: NextRequest) {
     JSON.stringify(body, null, 2),
   );
 
-  // Best-effort per-message logging.
+  // Persist each inbound message to the DB (tenant-scoped, deduped by wamid).
   for (const entry of body.entry ?? []) {
     for (const change of entry.changes ?? []) {
+      const phoneNumberId = change.value?.metadata?.phone_number_id;
       for (const message of change.value?.messages ?? []) {
+        const text = message.text?.body ?? "";
         console.log(
           `[whatsapp-webhook] message from ${message.from} (${message.type}): ${
-            message.text?.body ?? "(non-text message)"
+            text || "(non-text message)"
           }`,
         );
+        if (message.id && message.from) {
+          await persistInboundMessage({
+            phoneNumberId,
+            fromPhone: message.from,
+            text,
+            wamid: message.id,
+            timestamp: message.timestamp ? Number(message.timestamp) : undefined,
+          });
+        }
       }
     }
   }

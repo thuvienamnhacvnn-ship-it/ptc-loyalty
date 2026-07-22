@@ -163,6 +163,8 @@ enum WhatsAppMessageKind {
   REWARD_REDEEMED
   VOUCHER
   TEST
+  MANUAL // staff-composed outbound message
+  INBOUND // message received FROM a customer
 }
 
 // ── Auth (Auth.js compatible) ────────────────────────────────────────────────
@@ -830,7 +832,9 @@ model WhatsAppMessageLog {
   customerId        String?
   kind              WhatsAppMessageKind
   status            WhatsAppMessageStatus @default(QUEUED)
+  direction         String                @default("OUTBOUND") // OUTBOUND | INBOUND
   toPhone           String
+  fromPhone         String? // sender number for INBOUND messages
   language          String                @default("vi")
   templateKey       String?
   idempotencyKey    String // prevents duplicate sends

@@ -77,7 +77,8 @@ export async function POST(req: NextRequest) {
       data: {
         businessId: auth.ctx.businessId,
         customerId,
-        kind: "TEST",
+        kind: "MANUAL",
+        direction: "OUTBOUND",
         status: result.ok ? "SENT" : "FAILED",
         toPhone: to,
         language: "vi",

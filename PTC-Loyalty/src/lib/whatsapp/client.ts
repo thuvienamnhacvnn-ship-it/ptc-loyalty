@@ -163,11 +163,19 @@ export function sendImageMessage(
   });
 }
 
+/** A body variable for a template. When `name` is set, the message uses NAMED
+ *  parameters ({{customer_name}}); otherwise positional ({{1}}, {{2}}). */
+export interface TemplateBodyParam {
+  name?: string;
+  text: string;
+}
+
 /**
  * Send an approved template whose HEADER is an image (business-initiated, works
  * OUTSIDE the 24h window). `headerImageMediaId` is an uploaded media id (see
- * uploadImageMedia); `bodyParams` fill the template body's {{1}}, {{2}}, … (pass
- * [] if the template body has no variables).
+ * uploadImageMedia); `bodyParams` fill the template body's variables — supports
+ * BOTH named ({ name: "customer_name", text }) and positional ({ text }) styles.
+ * The style MUST match how the template was authored on Meta.
  */
 export function sendImageTemplate(
   creds: WhatsAppCredentials,
@@ -175,7 +183,7 @@ export function sendImageTemplate(
   templateName: string,
   languageCode: string,
   headerImageMediaId: string,
-  bodyParams: string[],
+  bodyParams: TemplateBodyParam[],
 ): Promise<SendResult> {
   const components: Array<Record<string, unknown>> = [
     {
@@ -186,7 +194,11 @@ export function sendImageTemplate(
   if (bodyParams.length > 0) {
     components.push({
       type: "body",
-      parameters: bodyParams.map<TemplateParam>((text) => ({ type: "text", text })),
+      parameters: bodyParams.map((p) => ({
+        type: "text",
+        ...(p.name ? { parameter_name: p.name } : {}),
+        text: p.text,
+      })),
     });
   }
   return post(creds, {

@@ -65,14 +65,18 @@ export async function sendMemberCardWhatsApp(input: {
 
     let result;
     if (uploaded.ok && templateName) {
-      // Template body variables: {{1}} = tên khách, {{2}} = mã thành viên.
+      // NAMED variables matching the `ptc_welcome` template on Meta:
+      //   {{customer_name}} = tên khách, {{member_code}} = mã thành viên.
       result = await sendImageTemplate(
         creds,
         input.toPhone,
         templateName,
         templateLang,
         uploaded.mediaId,
-        [input.name, input.memberCode],
+        [
+          { name: "customer_name", text: input.name },
+          { name: "member_code", text: input.memberCode },
+        ],
       );
     } else if (uploaded.ok) {
       result = await sendImageMessageByMediaId(creds, input.toPhone, uploaded.mediaId, caption);

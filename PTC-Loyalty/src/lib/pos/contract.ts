@@ -172,5 +172,6 @@ export const POS_ERROR_MESSAGES: Record<string, string> = {
   bad_request: "Yêu cầu không hợp lệ.",
   phone_taken: "Số điện thoại này đã được đăng ký.",
   email_taken: "Email này đã được đăng ký.",
+  invalid_password: "Mật khẩu không đúng.",
   server_error: "Lỗi máy chủ. Vui lòng thử lại.",
 };

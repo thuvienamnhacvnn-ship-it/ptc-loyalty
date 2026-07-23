@@ -16,6 +16,9 @@ const bridge = {
   resolveQr: (token: string) => ipcRenderer.invoke("pos:resolveQr", token),
   customerDetail: (id: string) => ipcRenderer.invoke("pos:customerDetail", id),
   createCustomer: (input: unknown) => ipcRenderer.invoke("pos:createCustomer", input),
+  updateCustomer: (id: string, input: unknown) => ipcRenderer.invoke("pos:updateCustomer", id, input),
+  deleteCustomer: (id: string, password: string) =>
+    ipcRenderer.invoke("pos:deleteCustomer", id, password),
   customerQr: (id: string) => ipcRenderer.invoke("pos:customerQr", id),
   whatsappMessages: (limit?: number) => ipcRenderer.invoke("pos:whatsappMessages", limit),
   whatsappSend: (input: unknown) => ipcRenderer.invoke("pos:whatsappSend", input),

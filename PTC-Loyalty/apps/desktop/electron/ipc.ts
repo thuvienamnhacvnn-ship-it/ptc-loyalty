@@ -92,6 +92,35 @@ export async function initIpc(getWindow: () => BrowserWindow | null): Promise<vo
     },
   );
 
+  ipcMain.handle(
+    "pos:updateCustomer",
+    async (
+      _e,
+      id: string,
+      input: { firstName: string; lastName?: string; phone?: string; email?: string; birthDate?: string },
+    ) => {
+      const res = await session.authed<{ ok: boolean }>(
+        await baseUrl(),
+        `/api/pos/customers/${encodeURIComponent(id)}/update`,
+        { method: "POST", body: input },
+      );
+      return res.ok
+        ? { ok: true as const }
+        : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+    },
+  );
+
+  ipcMain.handle("pos:deleteCustomer", async (_e, id: string, password: string) => {
+    const res = await session.authed<{ ok: boolean }>(
+      await baseUrl(),
+      `/api/pos/customers/${encodeURIComponent(id)}/delete`,
+      { method: "POST", body: { password } },
+    );
+    return res.ok
+      ? { ok: true as const }
+      : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+  });
+
   ipcMain.handle("pos:customerQr", async (_e, id: string) => {
     const res = await session.authed<{ token: string; dataUrl: string }>(
       await baseUrl(),

@@ -59,6 +59,17 @@ export interface PosBridge {
   }): Promise<
     { ok: true; customer: PosCustomer; qr: { token: string; dataUrl: string } } | Fail
   >;
+  updateCustomer(
+    id: string,
+    input: {
+      firstName: string;
+      lastName?: string;
+      phone?: string;
+      email?: string;
+      birthDate?: string;
+    },
+  ): Promise<{ ok: true } | Fail>;
+  deleteCustomer(id: string, password: string): Promise<{ ok: true } | Fail>;
   customerQr(
     id: string,
   ): Promise<{ ok: true; qr: { token: string; dataUrl: string } } | Fail>;

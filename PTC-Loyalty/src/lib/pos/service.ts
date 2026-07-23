@@ -132,6 +132,86 @@ export async function createPosCustomer(
   };
 }
 
+/** Update a customer from the desktop client (tenant-scoped, dedup-checked). */
+export async function updatePosCustomer(
+  ctx: PosContext,
+  customerId: string,
+  input: {
+    firstName: string;
+    lastName?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    birthDate?: string | null;
+  },
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const firstName = input.firstName?.trim();
+  if (!firstName) return { ok: false, error: "bad_request" };
+
+  const existing = await db.customerProfile.findFirst({
+    where: { id: customerId, businessId: ctx.businessId },
+    select: { id: true },
+  });
+  if (!existing) return { ok: false, error: "customer_not_found" };
+
+  const conflict = await findCustomerConflict(ctx.businessId, {
+    phone: input.phone,
+    email: input.email,
+    excludeId: customerId,
+  });
+  if (conflict === "phone") return { ok: false, error: "phone_taken" };
+  if (conflict === "email") return { ok: false, error: "email_taken" };
+
+  const bd = input.birthDate ? new Date(input.birthDate) : null;
+  await db.customerProfile.update({
+    where: { id: customerId },
+    data: {
+      firstName,
+      lastName: input.lastName?.trim() || null,
+      phone: input.phone?.trim() || null,
+      email: input.email?.trim() || null,
+      birthDate: bd && !Number.isNaN(bd.getTime()) ? bd : null,
+    },
+  });
+  return { ok: true };
+}
+
+/** Hard-delete a customer (tenant-scoped). Caller must verify the owner password
+ *  first. Cascades transactions/vouchers; cleans up an orphan CUSTOMER user. */
+export async function deletePosCustomer(
+  ctx: PosContext,
+  customerId: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const customer = await db.customerProfile.findFirst({
+    where: { id: customerId, businessId: ctx.businessId },
+    select: { id: true, userId: true },
+  });
+  if (!customer) return { ok: false, error: "customer_not_found" };
+
+  await db.$transaction(async (tx) => {
+    await tx.customerProfile.delete({ where: { id: customer.id } });
+    if (customer.userId) {
+      const others = await tx.customerProfile.count({ where: { userId: customer.userId } });
+      if (others === 0) {
+        const u = await tx.user.findUnique({
+          where: { id: customer.userId },
+          select: { role: true },
+        });
+        if (u?.role === "CUSTOMER") await tx.user.delete({ where: { id: customer.userId } });
+      }
+    }
+    await tx.auditLog.create({
+      data: {
+        businessId: ctx.businessId,
+        userId: ctx.user.id,
+        action: "customer.delete",
+        entity: "CustomerProfile",
+        entityId: customerId,
+      },
+    });
+  });
+  return { ok: true };
+}
+
 /** Look up a customer's qrSecret for rendering their fixed QR (tenant-scoped). */
 export async function customerQrData(
   ctx: PosContext,

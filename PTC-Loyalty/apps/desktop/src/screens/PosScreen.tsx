@@ -4,6 +4,8 @@ import {
   UserRound,
   UserPlus,
   QrCode,
+  Pencil,
+  Trash2,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -71,6 +73,19 @@ export function PosScreen() {
   const [cPhone, setCPhone] = useState("");
   const [cBirth, setCBirth] = useState("");
   const [qr, setQr] = useState<{ dataUrl: string; name: string; memberCode: string } | null>(null);
+  // edit / delete customer
+  const [editMode, setEditMode] = useState(false);
+  const [eFirst, setEFirst] = useState("");
+  const [eLast, setELast] = useState("");
+  const [ePhone, setEPhone] = useState("");
+  const [eEmail, setEEmail] = useState("");
+  const [eBirth, setEBirth] = useState("");
+  const [delMode, setDelMode] = useState(false);
+  const [delPass, setDelPass] = useState("");
+
+  const role = s.session?.user.role;
+  const canManage = role === "BUSINESS_OWNER" || role === "BUSINESS_MANAGER";
+  const canOwn = role === "BUSINESS_OWNER";
 
   // Anti-double-submit: one idempotency key per attempt; a hard in-flight guard.
   const idemRef = useRef<string>(uuid());
@@ -93,6 +108,9 @@ export function PosScreen() {
     setSelectedReward(null);
     setResult(null);
     setTab("earn");
+    setEditMode(false);
+    setDelMode(false);
+    setDelPass("");
     idemRef.current = uuid();
     inFlight.current = false;
   }, []);
@@ -347,6 +365,65 @@ export function PosScreen() {
     }
   }
 
+  function openEdit() {
+    if (!customer) return;
+    const parts = customer.name.trim().split(/\s+/);
+    setEFirst(parts[0] ?? "");
+    setELast(parts.slice(1).join(" "));
+    setEPhone(customer.phone ?? "");
+    setEEmail(customer.email ?? "");
+    setEBirth("");
+    setLookupError(null);
+    setDelMode(false);
+    setEditMode(true);
+  }
+
+  async function confirmEdit() {
+    if (!customer || !eFirst.trim() || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setLookupError(null);
+    const res = await window.pos.updateCustomer(customer.id, {
+      firstName: eFirst.trim(),
+      lastName: eLast.trim() || undefined,
+      phone: ePhone.trim() || undefined,
+      email: eEmail.trim() || undefined,
+      birthDate: eBirth || undefined,
+    });
+    setBusy(false);
+    inFlight.current = false;
+    if (!res.ok) {
+      setLookupError(res.message);
+      return;
+    }
+    setEditMode(false);
+    setCustomer({
+      ...customer,
+      name: `${eFirst.trim()} ${eLast.trim()}`.trim(),
+      phone: ePhone.trim() || null,
+      email: eEmail.trim() || null,
+    });
+    const d = await window.pos.customerDetail(customer.id);
+    if (d.ok) setDetail(d.detail);
+  }
+
+  async function confirmDelete() {
+    if (!customer || !delPass || inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setLookupError(null);
+    const res = await window.pos.deleteCustomer(customer.id, delPass);
+    setBusy(false);
+    inFlight.current = false;
+    if (!res.ok) {
+      setLookupError(res.message);
+      return;
+    }
+    setDelMode(false);
+    setDelPass("");
+    resetCustomer(); // back to scan screen
+  }
+
   async function syncQueue() {
     if (!window.confirm(`Đồng bộ ${s.queueCount} giao dịch đang chờ?`)) return;
     setBusy(true);
@@ -482,9 +559,92 @@ export function PosScreen() {
               <div className="muted" style={{ fontSize: 12 }}>Điểm hiện tại</div>
               <div className="big-num">{formatNumber(customer.pointsBalance)}</div>
             </div>
-            <button className="ghost" style={{ width: "100%", marginBottom: 12 }} onClick={showCustomerQr} disabled={busy}>
+            <button className="ghost" style={{ width: "100%", marginBottom: 10 }} onClick={showCustomerQr} disabled={busy}>
               <QrCode size={15} /> Xem mã QR thành viên
             </button>
+
+            {canManage && !editMode && !delMode && (
+              <div className="row" style={{ marginBottom: 12 }}>
+                <button className="ghost" style={{ flex: 1 }} onClick={openEdit} disabled={busy}>
+                  <Pencil size={14} /> Sửa
+                </button>
+                {canOwn && (
+                  <button
+                    className="ghost"
+                    style={{ flex: 1, color: "var(--danger)" }}
+                    onClick={() => { setEditMode(false); setLookupError(null); setDelMode(true); }}
+                    disabled={busy}
+                  >
+                    <Trash2 size={14} /> Xóa
+                  </button>
+                )}
+              </div>
+            )}
+
+            {editMode && (
+              <div className="card" style={{ background: "var(--panel-2)", marginBottom: 12 }}>
+                <h3 style={{ marginTop: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Pencil size={15} /> Sửa khách hàng
+                </h3>
+                <div className="row">
+                  <div className="field" style={{ flex: 1 }}>
+                    <label htmlFor="ef">Tên *</label>
+                    <input id="ef" value={eFirst} onChange={(e) => setEFirst(e.target.value)} />
+                  </div>
+                  <div className="field" style={{ flex: 1 }}>
+                    <label htmlFor="el">Họ</label>
+                    <input id="el" value={eLast} onChange={(e) => setELast(e.target.value)} />
+                  </div>
+                </div>
+                <div className="field">
+                  <label htmlFor="ep">Số điện thoại</label>
+                  <input id="ep" value={ePhone} onChange={(e) => setEPhone(e.target.value)} />
+                </div>
+                <div className="row">
+                  <div className="field" style={{ flex: 1 }}>
+                    <label htmlFor="ee">Email</label>
+                    <input id="ee" value={eEmail} onChange={(e) => setEEmail(e.target.value)} />
+                  </div>
+                  <div className="field" style={{ flex: 1 }}>
+                    <label htmlFor="eb">Ngày sinh</label>
+                    <input id="eb" type="date" value={eBirth} onChange={(e) => setEBirth(e.target.value)} />
+                  </div>
+                </div>
+                <button className="big success" onClick={confirmEdit} disabled={busy || !eFirst.trim()}>
+                  {busy ? <Spinner /> : "Lưu thay đổi"}
+                </button>
+                <button className="ghost" style={{ width: "100%", marginTop: 8 }} onClick={() => setEditMode(false)}>
+                  Hủy
+                </button>
+              </div>
+            )}
+
+            {delMode && (
+              <div className="card" style={{ background: "var(--panel-2)", marginBottom: 12 }}>
+                <h3 style={{ marginTop: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                  <Trash2 size={15} /> Xóa tài khoản khách
+                </h3>
+                <p className="muted" style={{ fontSize: 13 }}>
+                  Không thể hoàn tác — toàn bộ điểm, giao dịch và voucher sẽ bị xóa. Nhập mật khẩu của bạn để xác nhận.
+                </p>
+                <div className="field">
+                  <label htmlFor="dp">Mật khẩu của bạn</label>
+                  <input id="dp" type="password" value={delPass} onChange={(e) => setDelPass(e.target.value)} autoFocus />
+                </div>
+                <button
+                  className="big"
+                  style={{ background: "var(--danger)" }}
+                  onClick={confirmDelete}
+                  disabled={busy || !delPass}
+                >
+                  {busy ? <Spinner /> : "Xóa vĩnh viễn"}
+                </button>
+                <button className="ghost" style={{ width: "100%", marginTop: 8 }} onClick={() => { setDelMode(false); setDelPass(""); }}>
+                  Hủy
+                </button>
+              </div>
+            )}
+
             <h3>Giao dịch gần đây</h3>
             {detail ? (
               detail.recentTransactions.length ? (

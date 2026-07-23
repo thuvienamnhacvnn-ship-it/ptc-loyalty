@@ -119,6 +119,28 @@ export function QrScanner({ preferredCameraId, onToken, disabled }: Props) {
 
   useEffect(() => stop, [stop]);
 
+  // List cameras on mount and refresh whenever a USB camera is plugged/unplugged
+  // (hot-plug), so a webcam connected after opening the screen shows up.
+  useEffect(() => {
+    let cancelled = false;
+    const md = typeof navigator !== "undefined" ? navigator.mediaDevices : undefined;
+    if (!md?.enumerateDevices) return;
+    async function refresh() {
+      try {
+        const devices = await md!.enumerateDevices();
+        if (!cancelled) setCameras(devices.filter((d) => d.kind === "videoinput"));
+      } catch {
+        /* ignore */
+      }
+    }
+    refresh();
+    md.addEventListener?.("devicechange", refresh);
+    return () => {
+      cancelled = true;
+      md.removeEventListener?.("devicechange", refresh);
+    };
+  }, []);
+
   function switchCamera(id: string) {
     setActiveId(id);
     stop();

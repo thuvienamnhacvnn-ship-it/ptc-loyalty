@@ -1,4 +1,9 @@
-import { app, BrowserWindow, session as electronSession } from "electron";
+import {
+  app,
+  BrowserWindow,
+  session as electronSession,
+  systemPreferences,
+} from "electron";
 import path from "node:path";
 import { initIpc, currentSettings } from "./ipc";
 import { initAutoUpdate } from "./updater";
@@ -32,12 +37,17 @@ function createWindow(): void {
     },
   });
 
-  // Grant camera permission to our own content only (for the QR scanner).
-  electronSession.defaultSession.setPermissionRequestHandler(
-    (_wc, permission, callback) => {
-      callback(permission === "media");
-    },
-  );
+  // Camera access for the QR scanner (incl. USB webcams). Electron needs BOTH:
+  //  - the async request handler (first getUserMedia prompt), and
+  //  - the sync check handler (subsequent access + enumerateDevices) — without
+  //    the check handler the camera is often denied *silently*.
+  const ses = electronSession.defaultSession;
+  ses.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(permission === "media");
+  });
+  ses.setPermissionCheckHandler((_wc, permission) => permission === "media");
+  // Allow the renderer to bind to a specific video input device (USB camera).
+  ses.setDevicePermissionHandler(() => true);
 
   if (DEV_URL) {
     mainWindow.loadURL(DEV_URL);
@@ -52,6 +62,25 @@ function createWindow(): void {
 }
 
 app.whenReady().then(async () => {
+  // Obtain OS-level camera permission up front (macOS prompts; Windows/Linux
+  // report status). Never blocks startup if it fails.
+  try {
+    if (
+      process.platform === "darwin" &&
+      typeof systemPreferences.askForMediaAccess === "function"
+    ) {
+      await systemPreferences.askForMediaAccess("camera");
+    } else if (typeof systemPreferences.getMediaAccessStatus === "function") {
+      const status = systemPreferences.getMediaAccessStatus("camera");
+      if (status !== "granted") {
+        // eslint-disable-next-line no-console
+        console.warn(`[camera] OS media-access status: ${status}`);
+      }
+    }
+  } catch {
+    /* ignore — getUserMedia will still prompt/degrade gracefully */
+  }
+
   await initIpc(getWindow);
   createWindow();
   initAutoUpdate(getWindow);

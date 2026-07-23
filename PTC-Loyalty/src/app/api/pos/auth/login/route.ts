@@ -5,6 +5,12 @@ import { db } from "@/lib/db";
 import { isBusinessStaff } from "@/lib/rbac";
 import { createAccessToken, issueRefreshToken } from "@/lib/pos/token";
 import { posError } from "@/lib/pos/context";
+import {
+  checkLoginRateLimit,
+  recordFailedLogin,
+  clearLoginAttempts,
+  loginKey,
+} from "@/lib/rate-limit";
 import type { PosLoginResponse, PosRole } from "@/lib/pos/contract";
 
 export const dynamic = "force-dynamic";
@@ -27,17 +33,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(posError("bad_request"), { status: 400 });
   }
   const { email, password, deviceLabel } = parsed.data;
+  const key = loginKey(email);
+
+  // Brute-force guard (shared budget with the web login, per email).
+  const rl = await checkLoginRateLimit(key);
+  if (!rl.allowed) {
+    const mins = Math.ceil((rl.retryAfterSec ?? 900) / 60);
+    return NextResponse.json(
+      { error: "rate_limited", message: `Quá nhiều lần thử. Thử lại sau ${mins} phút.` },
+      { status: 429 },
+    );
+  }
 
   const user = await db.user.findUnique({
     where: { email: email.toLowerCase() },
   });
   if (!user || !user.passwordHash || !user.isActive) {
+    await recordFailedLogin(key);
     return NextResponse.json(posError("invalid_credentials"), { status: 401 });
   }
   const valid = await bcrypt.compare(password, user.passwordHash);
   if (!valid) {
+    await recordFailedLogin(key);
     return NextResponse.json(posError("invalid_credentials"), { status: 401 });
   }
+  await clearLoginAttempts(key); // success → reset counter
 
   // Only staff/manager/owner of an active business may use the desktop client.
   const staff = await db.staffProfile.findFirst({

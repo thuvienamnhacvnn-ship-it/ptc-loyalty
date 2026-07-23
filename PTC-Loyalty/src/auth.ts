@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { authConfig } from "./auth.config";
 import { db } from "./lib/db";
+import { clearLoginAttempts, loginKey } from "./lib/rate-limit";
 
 const credentialsSchema = z.object({
   email: z.string().email(),
@@ -31,6 +32,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
+
+        // Successful auth → reset the brute-force counter for this email.
+        await clearLoginAttempts(loginKey(email));
 
         return {
           id: user.id,

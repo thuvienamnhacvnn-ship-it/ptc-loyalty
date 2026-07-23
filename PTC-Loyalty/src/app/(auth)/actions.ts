@@ -14,6 +14,7 @@ import {
 } from "@/lib/provision";
 import { homeForRole } from "@/lib/rbac";
 import { sendEmail, passwordResetEmailHtml } from "@/lib/email";
+import { checkLoginRateLimit, recordFailedLogin, loginKey } from "@/lib/rate-limit";
 
 export async function logout() {
   await signOut({ redirectTo: "/" });
@@ -142,24 +143,35 @@ export async function login(
     return { fieldErrors: parsed.error.flatten().fieldErrors };
   }
 
+  const email = parsed.data.email.toLowerCase();
+  const key = loginKey(email);
+
+  // Brute-force guard: block once too many failures in the window.
+  const rl = await checkLoginRateLimit(key);
+  if (!rl.allowed) {
+    const mins = Math.ceil((rl.retryAfterSec ?? 900) / 60);
+    return { error: `Quá nhiều lần thử sai. Vui lòng thử lại sau ${mins} phút.` };
+  }
+
   // Route by role after a successful sign-in.
   const existing = await db.user.findUnique({
-    where: { email: parsed.data.email.toLowerCase() },
+    where: { email },
     select: { role: true },
   });
   const redirectTo = existing ? homeForRole(existing.role) : "/dashboard";
 
   try {
     await signIn("credentials", {
-      email: parsed.data.email.toLowerCase(),
+      email,
       password: parsed.data.password,
       redirectTo,
     });
   } catch (error) {
     if (error instanceof AuthError) {
+      await recordFailedLogin(key); // count this failed attempt
       return { error: "Email hoặc mật khẩu không đúng." };
     }
-    throw error; // redirect() throws — rethrow so Next handles it
+    throw error; // redirect() throws on success — rethrow so Next handles it
   }
   return {};
 }

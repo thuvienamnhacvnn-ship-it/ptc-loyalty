@@ -448,9 +448,11 @@ model CustomerProfile {
   whatsappMessages     WhatsAppMessageLog[]
 
   @@unique([businessId, memberCode])
+  // Anti-duplicate: one phone / one email per business (NULLs are allowed and
+  // do not conflict — customers without a phone/email are fine).
+  @@unique([businessId, phone])
+  @@unique([businessId, email])
   @@index([businessId])
-  @@index([businessId, phone])
-  @@index([businessId, email])
 }
 
 model MembershipTier {
@@ -782,6 +784,19 @@ model FeatureFlag {
   description String?
   enabled     Boolean  @default(false)
   createdAt   DateTime @default(now())
+}
+
+// Brute-force protection for login: counts failed attempts per key (email/IP)
+// within a rolling window, and blocks until `blockedUntil`.
+model LoginAttempt {
+  id           String    @id @default(cuid())
+  key          String    @unique // e.g. "login:owner@pho-hanoi.de"
+  count        Int       @default(0)
+  windowStart  DateTime  @default(now())
+  blockedUntil DateTime?
+  updatedAt    DateTime  @updatedAt
+
+  @@index([blockedUntil])
 }
 
 // ── WhatsApp Business Platform (Meta Cloud API) ──────────────────────────────

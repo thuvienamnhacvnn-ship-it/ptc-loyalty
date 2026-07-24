@@ -13,6 +13,7 @@ const bridge = {
   me: () => ipcRenderer.invoke("pos:me"),
 
   search: (q: string) => ipcRenderer.invoke("pos:search", q),
+  customersList: (opts: unknown) => ipcRenderer.invoke("pos:customersList", opts),
   resolveQr: (token: string) => ipcRenderer.invoke("pos:resolveQr", token),
   customerDetail: (id: string) => ipcRenderer.invoke("pos:customerDetail", id),
   createCustomer: (input: unknown) => ipcRenderer.invoke("pos:createCustomer", input),

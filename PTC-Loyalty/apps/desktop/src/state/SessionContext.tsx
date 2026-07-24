@@ -8,9 +8,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { PosSessionInfo } from "@shared/contract";
+import type { PosSessionInfo, PosCustomer } from "@shared/contract";
 
-export type Phase = "loading" | "login" | "branch" | "pos" | "settings" | "whatsapp";
+export type Phase =
+  | "loading"
+  | "login"
+  | "branch"
+  | "pos"
+  | "settings"
+  | "whatsapp"
+  | "customers";
 
 interface SessionState {
   phase: Phase;
@@ -19,6 +26,11 @@ interface SessionState {
   online: boolean;
   queueCount: number;
   baseUrl: string;
+  /** A customer chosen from another screen (e.g. the list) to open in the POS. */
+  pendingCustomer: PosCustomer | null;
+  setPendingCustomer: (c: PosCustomer | null) => void;
+  /** Open a customer in the POS screen (used by the customer list). */
+  openCustomer: (c: PosCustomer) => void;
   setPhase: (p: Phase) => void;
   setBranch: (id: string | null) => void;
   refreshConnectivity: () => Promise<void>;
@@ -42,7 +54,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [online, setOnline] = useState(true);
   const [queueCount, setQueueCount] = useState(0);
   const [baseUrl, setBaseUrl] = useState("");
+  const [pendingCustomer, setPendingCustomer] = useState<PosCustomer | null>(null);
   const pingTimer = useRef<number | null>(null);
+
+  const openCustomer = useCallback((c: PosCustomer) => {
+    setPendingCustomer(c);
+    setPhase("pos");
+  }, []);
 
   const refreshConnectivity = useCallback(async () => {
     const ok = await window.pos.ping();
@@ -112,6 +130,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       online,
       queueCount,
       baseUrl,
+      pendingCustomer,
+      setPendingCustomer,
+      openCustomer,
       setPhase,
       setBranch: setBranchId,
       refreshConnectivity,
@@ -126,6 +147,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       online,
       queueCount,
       baseUrl,
+      pendingCustomer,
+      openCustomer,
       refreshConnectivity,
       refreshQueue,
       onLoggedIn,

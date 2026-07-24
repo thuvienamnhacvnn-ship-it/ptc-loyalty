@@ -134,6 +134,15 @@ export function PosScreen() {
     if (r.ok) setRewards(r.rewards);
   }, []);
 
+  // A customer chosen from the Customers list opens here.
+  const { pendingCustomer, setPendingCustomer } = s;
+  useEffect(() => {
+    if (pendingCustomer) {
+      loadCustomer(pendingCustomer);
+      setPendingCustomer(null);
+    }
+  }, [pendingCustomer, setPendingCustomer, loadCustomer]);
+
   const handleToken = useCallback(
     async (token: string) => {
       setBusy(true);

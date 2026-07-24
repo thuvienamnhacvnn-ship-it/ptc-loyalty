@@ -48,6 +48,14 @@ export interface PosBridge {
   me(): Promise<{ ok: true; session: PosSessionInfo } | Fail>;
 
   search(q: string): Promise<{ ok: true; customer: PosCustomer } | Fail>;
+  customersList(opts: {
+    q?: string;
+    page?: number;
+    pageSize?: number;
+  }): Promise<
+    | { ok: true; customers: PosCustomer[]; total: number; page: number; pageSize: number }
+    | Fail
+  >;
   resolveQr(token: string): Promise<{ ok: true; customer: PosCustomer } | Fail>;
   customerDetail(id: string): Promise<{ ok: true; detail: PosCustomerDetail } | Fail>;
   createCustomer(input: {

@@ -1,5 +1,17 @@
-import { Maximize, Settings, LogOut, Store, Wifi, WifiOff, Inbox, MessageCircle, Coins } from "lucide-react";
+import {
+  Maximize,
+  Settings,
+  LogOut,
+  Store,
+  Wifi,
+  WifiOff,
+  Inbox,
+  MessageCircle,
+  Coins,
+  Users,
+} from "lucide-react";
 import { useSession } from "../state/SessionContext";
+import type { Phase } from "../state/SessionContext";
 
 export function TopBar() {
   const s = useSession();
@@ -7,12 +19,36 @@ export function TopBar() {
   const branch =
     s.session.branches.find((b) => b.id === s.branchId)?.name ?? "Tất cả chi nhánh";
 
+  // Main navigation between the counter screens.
+  const nav: { phase: Phase; label: string; icon: typeof Coins }[] = [
+    { phase: "pos", label: "Bán hàng", icon: Coins },
+    { phase: "customers", label: "Khách hàng", icon: Users },
+    { phase: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+  ];
+
   return (
     <div className="topbar">
       <div className="brand">
         <Store size={18} /> {s.session.business.name}
       </div>
       <span className="badge">{branch}</span>
+
+      <div className="row" style={{ gap: 4, marginLeft: 8 }}>
+        {nav.map((n) => {
+          const active = s.phase === n.phase;
+          const Icon = n.icon;
+          return (
+            <button
+              key={n.phase}
+              className={active ? "" : "ghost"}
+              style={{ padding: "6px 12px", fontSize: 13 }}
+              onClick={() => s.setPhase(n.phase)}
+            >
+              <Icon size={15} /> {n.label}
+            </button>
+          );
+        })}
+      </div>
 
       {s.online ? (
         <span className="pill online">
@@ -35,13 +71,6 @@ export function TopBar() {
         <br />
         {s.session.user.role}
       </div>
-      <button
-        className="ghost"
-        title={s.phase === "whatsapp" ? "Màn hình bán hàng" : "WhatsApp"}
-        onClick={() => s.setPhase(s.phase === "whatsapp" ? "pos" : "whatsapp")}
-      >
-        {s.phase === "whatsapp" ? <Coins size={16} /> : <MessageCircle size={16} />}
-      </button>
       <button className="ghost" title="Toàn màn hình" onClick={() => window.pos.toggleFullscreen()}>
         <Maximize size={16} />
       </button>

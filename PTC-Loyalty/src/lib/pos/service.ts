@@ -82,6 +82,52 @@ export async function searchCustomer(
   return { ok: true, customer: toPosCustomer(customer) };
 }
 
+export interface PosCustomerListResult {
+  customers: PosCustomer[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Paginated customer list for the desktop "Khách hàng" screen (tenant-scoped).
+ *  Optional `q` filters by member code / phone / email / name. */
+export async function listPosCustomers(
+  ctx: PosContext,
+  opts: { q?: string; page?: number; pageSize?: number },
+): Promise<PosCustomerListResult> {
+  const page = Math.max(1, Math.floor(opts.page ?? 1));
+  const pageSize = Math.min(100, Math.max(1, Math.floor(opts.pageSize ?? 25)));
+  const q = opts.q?.trim();
+
+  const where = {
+    businessId: ctx.businessId,
+    ...(q
+      ? {
+          OR: [
+            { memberCode: { contains: q, mode: "insensitive" as const } },
+            { phone: { contains: q } },
+            { email: { contains: q, mode: "insensitive" as const } },
+            { firstName: { contains: q, mode: "insensitive" as const } },
+            { lastName: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
+
+  const [rows, total] = await Promise.all([
+    db.customerProfile.findMany({
+      where,
+      select: customerSelect,
+      orderBy: [{ lastVisitAt: { sort: "desc", nulls: "last" } }, { joinedAt: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    db.customerProfile.count({ where }),
+  ]);
+
+  return { customers: rows.map(toPosCustomer), total, page, pageSize };
+}
+
 export type CreateCustomerResult =
   | { ok: true; customer: PosCustomer; customerId: string; memberCode: string; qrSecret: string }
   | { ok: false; error: string };

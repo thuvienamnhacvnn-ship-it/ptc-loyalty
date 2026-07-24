@@ -92,6 +92,25 @@ export async function initIpc(getWindow: () => BrowserWindow | null): Promise<vo
   });
 
   ipcMain.handle(
+    "pos:customersList",
+    async (_e, opts: { q?: string; page?: number; pageSize?: number }) => {
+      const qs = new URLSearchParams();
+      if (opts.q) qs.set("q", opts.q);
+      if (opts.page) qs.set("page", String(opts.page));
+      if (opts.pageSize) qs.set("pageSize", String(opts.pageSize));
+      const res = await session.authed<{
+        customers: PosCustomer[];
+        total: number;
+        page: number;
+        pageSize: number;
+      }>(await baseUrl(), `/api/pos/customers/list?${qs.toString()}`);
+      return res.ok
+        ? { ok: true as const, ...res.data }
+        : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+    },
+  );
+
+  ipcMain.handle(
     "pos:createCustomer",
     async (_e, input: { firstName: string; lastName?: string; phone?: string; email?: string; birthDate?: string }) => {
       const res = await session.authed<{

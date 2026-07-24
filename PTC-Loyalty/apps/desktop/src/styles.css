@@ -78,6 +78,23 @@ select {
 .topbar .spacer {
   flex: 1;
 }
+/* Main nav: takes the middle space and scrolls horizontally if the window is
+   narrow, so a growing number of tabs never breaks the topbar layout. */
+.topnav {
+  display: flex;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.topnav::-webkit-scrollbar {
+  height: 4px;
+}
+.topnav > button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .topbar .meta {
   font-size: 13px;
   color: var(--muted);

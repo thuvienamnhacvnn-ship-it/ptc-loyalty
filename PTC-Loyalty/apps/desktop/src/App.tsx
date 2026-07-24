@@ -12,6 +12,7 @@ import { OverviewScreen } from "./screens/OverviewScreen";
 import { TransactionsScreen } from "./screens/TransactionsScreen";
 import { RewardsScreen } from "./screens/RewardsScreen";
 import { VouchersScreen } from "./screens/VouchersScreen";
+import { AdminScreen } from "./screens/AdminScreen";
 
 function UpdateBanner() {
   const [msg, setMsg] = useState<string | null>(null);
@@ -65,6 +66,8 @@ function Router() {
           <RewardsScreen />
         ) : phase === "vouchers" ? (
           <VouchersScreen />
+        ) : phase === "admin" ? (
+          <AdminScreen />
         ) : (
           <PosScreen />
         )}

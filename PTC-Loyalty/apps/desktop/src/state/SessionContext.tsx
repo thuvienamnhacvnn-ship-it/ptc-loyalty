@@ -21,7 +21,8 @@ export type Phase =
   | "overview"
   | "transactions"
   | "rewards"
-  | "vouchers";
+  | "vouchers"
+  | "admin";
 
 interface SessionState {
   phase: Phase;

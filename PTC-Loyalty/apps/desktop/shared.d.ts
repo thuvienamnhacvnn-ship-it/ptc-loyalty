@@ -8,6 +8,7 @@ import type {
   PosLoginResponse,
   PosReward,
   PosSessionInfo,
+  PosStaff,
   PosStats,
   PosTransactionListItem,
   PosTransactionResult,
@@ -140,6 +141,16 @@ export interface PosBridge {
   rewards(): Promise<{ ok: true; rewards: PosReward[] } | Fail>;
   stats(): Promise<{ ok: true; stats: PosStats } | Fail>;
   vouchersList(): Promise<{ ok: true; vouchers: PosVoucherListItem[] } | Fail>;
+  staffList(): Promise<{ ok: true; staff: PosStaff[] } | Fail>;
+  staffAdd(input: {
+    name: string;
+    email: string;
+    password: string;
+    role: "STAFF" | "BUSINESS_MANAGER";
+    branchId?: string | null;
+    maxPointsGrant?: number | null;
+  }): Promise<{ ok: true } | Fail>;
+  staffToggle(id: string): Promise<{ ok: true } | Fail>;
   transactionsList(opts: {
     page?: number;
     pageSize?: number;

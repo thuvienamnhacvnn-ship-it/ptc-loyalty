@@ -80,6 +80,19 @@ export interface PosTransactionListItem extends PosTransactionSummary {
   memberCode: string;
 }
 
+/** A staff member for the desktop admin "Nhân viên" screen. */
+export interface PosStaff {
+  id: string;
+  name: string | null;
+  email: string;
+  role: string; // STAFF | BUSINESS_MANAGER | BUSINESS_OWNER
+  branchId: string | null;
+  branchName: string | null;
+  maxPointsGrant: number | null;
+  isActive: boolean;
+  lastLoginAt: string | null;
+}
+
 /** Counter dashboard summary for the desktop "Tổng quan" screen. */
 export interface PosStats {
   customersTotal: number;

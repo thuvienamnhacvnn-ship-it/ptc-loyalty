@@ -13,6 +13,7 @@ import {
   Receipt,
   Gift,
   Ticket,
+  ShieldCheck,
 } from "lucide-react";
 import { useSession } from "../state/SessionContext";
 import type { Phase } from "../state/SessionContext";
@@ -23,7 +24,9 @@ export function TopBar() {
   const branch =
     s.session.branches.find((b) => b.id === s.branchId)?.name ?? "Tất cả chi nhánh";
 
-  // Main navigation between the counter screens.
+  // Main navigation between the counter screens. Admin is manager/owner only.
+  const canAdmin =
+    s.session.user.role === "BUSINESS_OWNER" || s.session.user.role === "BUSINESS_MANAGER";
   const nav: { phase: Phase; label: string; icon: typeof Coins }[] = [
     { phase: "overview", label: "Tổng quan", icon: LayoutDashboard },
     { phase: "pos", label: "Bán hàng", icon: Coins },
@@ -32,6 +35,9 @@ export function TopBar() {
     { phase: "rewards", label: "Quà", icon: Gift },
     { phase: "vouchers", label: "Voucher", icon: Ticket },
     { phase: "whatsapp", label: "WhatsApp", icon: MessageCircle },
+    ...(canAdmin
+      ? [{ phase: "admin" as Phase, label: "Quản trị", icon: ShieldCheck }]
+      : []),
   ];
 
   return (
@@ -41,7 +47,7 @@ export function TopBar() {
       </div>
       <span className="badge">{branch}</span>
 
-      <div className="row" style={{ gap: 4, marginLeft: 8 }}>
+      <div className="topnav" style={{ marginLeft: 8 }}>
         {nav.map((n) => {
           const active = s.phase === n.phase;
           const Icon = n.icon;
@@ -73,8 +79,7 @@ export function TopBar() {
         </span>
       )}
 
-      <div className="spacer" />
-      <div className="meta">
+      <div className="meta" style={{ marginLeft: 8 }}>
         {s.session.user.name ?? s.session.user.email}
         <br />
         {s.session.user.role}

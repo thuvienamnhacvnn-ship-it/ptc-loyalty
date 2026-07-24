@@ -35,6 +35,9 @@ const bridge = {
   stats: () => ipcRenderer.invoke("pos:stats"),
   transactionsList: (opts: unknown) => ipcRenderer.invoke("pos:transactionsList", opts),
   vouchersList: () => ipcRenderer.invoke("pos:vouchersList"),
+  staffList: () => ipcRenderer.invoke("pos:staffList"),
+  staffAdd: (input: unknown) => ipcRenderer.invoke("pos:staffAdd", input),
+  staffToggle: (id: string) => ipcRenderer.invoke("pos:staffToggle", id),
 
   getSettings: () => ipcRenderer.invoke("settings:get"),
   setSettings: (patch: unknown) => ipcRenderer.invoke("settings:set", patch),

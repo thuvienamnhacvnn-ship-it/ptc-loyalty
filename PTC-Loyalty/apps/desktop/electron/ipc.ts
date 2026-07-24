@@ -17,6 +17,7 @@ import type {
   PosEarnPreview,
   PosLoginResponse,
   PosReward,
+  PosStaff,
   PosStats,
   PosTransactionListItem,
   PosTransactionResult,
@@ -377,6 +378,35 @@ export async function initIpc(getWindow: () => BrowserWindow | null): Promise<vo
     );
     return res.ok
       ? { ok: true as const, vouchers: res.data.vouchers }
+      : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+  });
+
+  // ── Admin: Staff ────────────────────────────────────────────────────────────
+  ipcMain.handle("pos:staffList", async () => {
+    const res = await session.authed<{ staff: PosStaff[] }>(await baseUrl(), "/api/pos/staff");
+    return res.ok
+      ? { ok: true as const, staff: res.data.staff }
+      : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+  });
+
+  ipcMain.handle("pos:staffAdd", async (_e, input: unknown) => {
+    const res = await session.authed<{ ok: boolean }>(await baseUrl(), "/api/pos/staff", {
+      method: "POST",
+      body: input,
+    });
+    return res.ok
+      ? { ok: true as const }
+      : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+  });
+
+  ipcMain.handle("pos:staffToggle", async (_e, id: string) => {
+    const res = await session.authed<{ ok: boolean }>(
+      await baseUrl(),
+      `/api/pos/staff/${encodeURIComponent(id)}/toggle`,
+      { method: "POST", body: {} },
+    );
+    return res.ok
+      ? { ok: true as const }
       : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
   });
 

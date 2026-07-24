@@ -41,6 +41,15 @@ export async function GET(req: NextRequest) {
 
   // 2) Is the app subscribed to this WABA's webhooks? (No subscription = no
   //    delivery/status callbacks, and templates may still send but we're blind.)
+  //    With ?subscribe=1, POST to subscribe the app first, then re-read.
+  if (url.searchParams.get("subscribe") === "1") {
+    try {
+      const r = await fetch(`${GRAPH}/${wabaId}/subscribed_apps`, { method: "POST", headers: auth });
+      out.subscribeResult = { httpStatus: r.status, body: await r.json().catch(() => ({})) };
+    } catch (e) {
+      out.subscribeResult = { error: e instanceof Error ? e.message : "fetch_failed" };
+    }
+  }
   try {
     const r = await fetch(`${GRAPH}/${wabaId}/subscribed_apps`, { headers: auth });
     out.subscribedApps = { httpStatus: r.status, body: await r.json().catch(() => ({})) };

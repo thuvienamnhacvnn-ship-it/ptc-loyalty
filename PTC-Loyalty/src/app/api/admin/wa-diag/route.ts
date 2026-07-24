@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import QRCode from "qrcode";
+import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 const GRAPH = "https://graph.facebook.com/v21.0";
@@ -113,10 +114,56 @@ export async function GET(req: NextRequest) {
           headers: { ...auth, "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-        out.testSend = { httpStatus: send.status, body: await send.json().catch(() => ({})) };
+        const sendJson: { messages?: { id: string }[]; error?: unknown } = await send
+          .json()
+          .catch(() => ({}));
+        out.testSend = { httpStatus: send.status, body: sendJson };
+        // Write a log row so the delivery-status webhook can update it by wamid,
+        // letting us read the REAL delivered/failed outcome + error code.
+        const wamid = sendJson.messages?.[0]?.id;
+        if (wamid) {
+          try {
+            const anyBiz = await db.business.findFirst({ select: { id: true } });
+            if (anyBiz) {
+              await db.whatsAppMessageLog.create({
+                data: {
+                  businessId: anyBiz.id,
+                  kind: "TEST",
+                  status: "SENT",
+                  direction: "OUTBOUND",
+                  toPhone: to,
+                  language: templateLang,
+                  templateKey: templateName,
+                  idempotencyKey: `wa-diag:${wamid}`,
+                  providerMessageId: wamid,
+                  sentAt: new Date(),
+                },
+              });
+            }
+          } catch {
+            /* logging is best-effort */
+          }
+        }
       }
     } catch (e) {
       out.testSend = { error: e instanceof Error ? e.message : "send_failed" };
+    }
+  }
+
+  // Read back recent TEST logs (delivery status updated by the webhook).
+  if (url.searchParams.get("logs") === "1") {
+    try {
+      out.recentTestLogs = await db.whatsAppMessageLog.findMany({
+        where: { kind: "TEST", idempotencyKey: { startsWith: "wa-diag:" } },
+        orderBy: { createdAt: "desc" },
+        take: 6,
+        select: {
+          toPhone: true, status: true, error: true, sentAt: true,
+          deliveredAt: true, readAt: true, failedAt: true, providerMessageId: true,
+        },
+      });
+    } catch (e) {
+      out.recentTestLogs = { error: e instanceof Error ? e.message : "read_failed" };
     }
   }
 

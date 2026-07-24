@@ -114,6 +114,21 @@ export interface PosReward {
   stock: number | null;
 }
 
+/** A store voucher for the desktop "Voucher" catalog screen. */
+export interface PosVoucherListItem {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  discountType: string; // percent | fixed | free_item
+  discountValue: number;
+  pointsCost: number;
+  quantity: number | null; // null = unlimited
+  issuedCount: number;
+  status: string; // DRAFT | ACTIVE | PAUSED | EXPIRED | ...
+  expiresAt: string | null;
+}
+
 export interface PosEarnPreview {
   amount: number;
   points: number;

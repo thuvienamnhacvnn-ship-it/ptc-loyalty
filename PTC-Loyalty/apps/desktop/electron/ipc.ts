@@ -20,6 +20,7 @@ import type {
   PosStats,
   PosTransactionListItem,
   PosTransactionResult,
+  PosVoucherListItem,
   PosVoucherRedeemResult,
 } from "@shared/contract";
 
@@ -366,6 +367,16 @@ export async function initIpc(getWindow: () => BrowserWindow | null): Promise<vo
     const res = await session.authed<PosStats>(await baseUrl(), "/api/pos/stats");
     return res.ok
       ? { ok: true as const, stats: res.data }
+      : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+  });
+
+  ipcMain.handle("pos:vouchersList", async () => {
+    const res = await session.authed<{ vouchers: PosVoucherListItem[] }>(
+      await baseUrl(),
+      "/api/pos/vouchers/list",
+    );
+    return res.ok
+      ? { ok: true as const, vouchers: res.data.vouchers }
       : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
   });
 

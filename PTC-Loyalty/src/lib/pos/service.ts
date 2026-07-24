@@ -12,6 +12,7 @@ import type {
   PosWhatsAppStatus,
   PosStats,
   PosTransactionListItem,
+  PosVoucherListItem,
 } from "@/lib/pos/contract";
 
 // POS read/service helpers. Business logic (points calc, fraud, DB writes) is NOT
@@ -550,6 +551,33 @@ export async function listRewards(ctx: PosContext): Promise<PosReward[]> {
     select: { id: true, name: true, description: true, pointsCost: true, stock: true },
   });
   return rewards;
+}
+
+/** Store voucher catalog (tenant-scoped) for the desktop "Voucher" screen.
+ *  Newest first; drafts included so staff see everything. */
+export async function listPosVouchers(ctx: PosContext): Promise<PosVoucherListItem[]> {
+  const rows = await db.voucher.findMany({
+    where: { businessId: ctx.businessId },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+    select: {
+      id: true,
+      code: true,
+      title: true,
+      description: true,
+      discountType: true,
+      discountValue: true,
+      pointsCost: true,
+      quantity: true,
+      issuedCount: true,
+      status: true,
+      expiresAt: true,
+    },
+  });
+  return rows.map((v) => ({
+    ...v,
+    expiresAt: v.expiresAt ? v.expiresAt.toISOString() : null,
+  }));
 }
 
 /** Latest WhatsApp notification status for a transaction (for the POS UI). */

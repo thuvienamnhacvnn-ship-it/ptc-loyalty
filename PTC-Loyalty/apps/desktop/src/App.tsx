@@ -10,6 +10,8 @@ import { WhatsAppScreen } from "./screens/WhatsAppScreen";
 import { CustomersScreen } from "./screens/CustomersScreen";
 import { OverviewScreen } from "./screens/OverviewScreen";
 import { TransactionsScreen } from "./screens/TransactionsScreen";
+import { RewardsScreen } from "./screens/RewardsScreen";
+import { VouchersScreen } from "./screens/VouchersScreen";
 
 function UpdateBanner() {
   const [msg, setMsg] = useState<string | null>(null);
@@ -59,6 +61,10 @@ function Router() {
           <OverviewScreen />
         ) : phase === "transactions" ? (
           <TransactionsScreen />
+        ) : phase === "rewards" ? (
+          <RewardsScreen />
+        ) : phase === "vouchers" ? (
+          <VouchersScreen />
         ) : (
           <PosScreen />
         )}

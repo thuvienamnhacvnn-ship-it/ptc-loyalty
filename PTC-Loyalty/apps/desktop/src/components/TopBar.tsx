@@ -11,6 +11,8 @@ import {
   Users,
   LayoutDashboard,
   Receipt,
+  Gift,
+  Ticket,
 } from "lucide-react";
 import { useSession } from "../state/SessionContext";
 import type { Phase } from "../state/SessionContext";
@@ -27,6 +29,8 @@ export function TopBar() {
     { phase: "pos", label: "Bán hàng", icon: Coins },
     { phase: "customers", label: "Khách hàng", icon: Users },
     { phase: "transactions", label: "Giao dịch", icon: Receipt },
+    { phase: "rewards", label: "Quà", icon: Gift },
+    { phase: "vouchers", label: "Voucher", icon: Ticket },
     { phase: "whatsapp", label: "WhatsApp", icon: MessageCircle },
   ];
 

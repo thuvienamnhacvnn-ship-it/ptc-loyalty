@@ -11,6 +11,7 @@ import type {
   PosStats,
   PosTransactionListItem,
   PosTransactionResult,
+  PosVoucherListItem,
   PosVoucherRedeemResult,
   PosWhatsAppMessage,
 } from "@shared/contract";
@@ -138,6 +139,7 @@ export interface PosBridge {
   ): Promise<{ ok: true; voucher: PosVoucherRedeemResult } | Fail>;
   rewards(): Promise<{ ok: true; rewards: PosReward[] } | Fail>;
   stats(): Promise<{ ok: true; stats: PosStats } | Fail>;
+  vouchersList(): Promise<{ ok: true; vouchers: PosVoucherListItem[] } | Fail>;
   transactionsList(opts: {
     page?: number;
     pageSize?: number;

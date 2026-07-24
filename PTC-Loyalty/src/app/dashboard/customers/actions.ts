@@ -198,7 +198,14 @@ export async function createCustomer(
       storeName: biz?.name ?? "PTC Loyalty",
       toPhone: d.phone,
     });
-    whatsapp = sent.ok ? "sent" : sent.skipped ?? sent.error;
+    // Honest status: only an APPROVED template ("sent") is guaranteed to reach
+    // any customer. A free-form/link send ("sent_pending") only arrives if the
+    // customer messaged us within 24h (or is an allow-listed test number).
+    whatsapp = sent.ok
+      ? sent.method === "template"
+        ? "sent"
+        : "sent_pending"
+      : sent.skipped ?? sent.error;
   }
 
   return { ok: true, customerId: created.id, whatsapp };

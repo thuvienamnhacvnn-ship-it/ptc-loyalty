@@ -34,7 +34,15 @@ export async function sendMemberCardWhatsApp(input: {
   name: string;
   storeName: string;
   toPhone: string | null | undefined;
-}): Promise<{ ok: boolean; skipped?: string; error?: string }> {
+}): Promise<{
+  ok: boolean;
+  skipped?: string;
+  error?: string;
+  /** How the card was actually sent — callers surface an honest status:
+   *  "template" delivers to ANY customer; "freeform"/"link" only reach a
+   *  customer who messaged us within the last 24h (or an allow-listed test #). */
+  method?: "template" | "freeform" | "link";
+}> {
   try {
     if (!input.toPhone) return { ok: false, skipped: "no_phone" };
     const creds = envCreds();
@@ -72,6 +80,8 @@ export async function sendMemberCardWhatsApp(input: {
       sendImageMessageByMediaId(creds, input.toPhone!, uploaded.ok ? uploaded.mediaId : "", caption);
 
     let result;
+    // Track HOW it was actually sent, so callers can show an honest status.
+    let method: "template" | "freeform" | "link" = "freeform";
     if (uploaded.ok && templateName) {
       const status = await getTemplateStatus(
         creds.accessToken,
@@ -92,6 +102,7 @@ export async function sendMemberCardWhatsApp(input: {
           `[membership-card] template "${templateName}" is not APPROVED (status=${status}); skipping template, using free-form image`,
         );
         result = await freeFormImage();
+        method = "freeform";
       } else {
         // NAMED variable matching the `ptc_member_card` (Utility) template on Meta:
         // header = QR image, body has a single {{customer_name}} variable. The member
@@ -106,16 +117,20 @@ export async function sendMemberCardWhatsApp(input: {
           uploaded.mediaId,
           [{ name: "customer_name", text: input.name }],
         );
-        // Even an APPROVED (or status-unknown) template can fail → degrade to free-form.
-        if (!result.ok) {
+        if (result.ok) {
+          method = "template";
+        } else {
+          // Even an APPROVED (or status-unknown) template can fail → degrade to free-form.
           console.warn(
             `[membership-card] template "${templateName}" send failed (${result.error}); falling back to free-form image`,
           );
           result = await freeFormImage();
+          method = "freeform";
         }
       }
     } else if (uploaded.ok) {
       result = await freeFormImage();
+      method = "freeform";
     } else {
       result = await sendImageMessage(
         creds,
@@ -123,8 +138,38 @@ export async function sendMemberCardWhatsApp(input: {
         `${appUrl()}/api/member/card?token=${encodeURIComponent(token)}`,
         caption,
       );
+      method = "link";
     }
-    return result.ok ? { ok: true } : { ok: false, error: result.error };
+
+    // Persist an outbound log so its delivery status (updated by the webhook,
+    // matched on the wamid) is visible in Settings → WhatsApp. Never let a
+    // logging failure affect the send result / signup.
+    try {
+      await db.whatsAppMessageLog.create({
+        data: {
+          businessId: input.businessId,
+          customerId: input.customerId,
+          kind: "MANUAL",
+          status: result.ok ? "SENT" : "FAILED",
+          direction: "OUTBOUND",
+          toPhone: input.toPhone,
+          language: templateLang,
+          templateKey: method === "template" ? templateName : null,
+          idempotencyKey: `member-card:${input.customerId}:${Date.now()}`,
+          providerMessageId: result.ok ? result.messageId : null,
+          error: result.ok ? null : result.error,
+          sentAt: result.ok ? new Date() : null,
+          failedAt: result.ok ? null : new Date(),
+        },
+      });
+    } catch (logErr) {
+      console.error(
+        "[membership-card] log write failed:",
+        logErr instanceof Error ? logErr.message : logErr,
+      );
+    }
+
+    return result.ok ? { ok: true, method } : { ok: false, error: result.error, method };
   } catch (e) {
     console.error("[membership-card] send failed:", e instanceof Error ? e.message : e);
     return { ok: false, error: "exception" };

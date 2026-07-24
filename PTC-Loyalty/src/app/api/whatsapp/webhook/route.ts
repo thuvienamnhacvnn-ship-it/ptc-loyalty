@@ -9,9 +9,18 @@
 // /api/webhooks/whatsapp. This endpoint is the simpler verify + message-log one.
 
 import { NextRequest, NextResponse } from "next/server";
+import { db } from "@/lib/db";
 import { persistInboundMessage } from "@/lib/whatsapp/inbound";
 
 export const runtime = "nodejs";
+
+// Meta delivery-status → our WhatsAppMessageLog.status enum.
+const STATUS_MAP = {
+  sent: "SENT",
+  delivered: "DELIVERED",
+  read: "READ",
+  failed: "FAILED",
+} as const;
 
 // The token you enter in Meta → WhatsApp → Configuration → "Verify token".
 // Configurable via env (recommended for prod); falls back to the agreed value
@@ -71,6 +80,12 @@ type WhatsAppWebhookBody = {
           timestamp?: string;
           text?: { body?: string };
         }>;
+        statuses?: Array<{
+          id?: string; // wamid of a message WE sent
+          status?: "sent" | "delivered" | "read" | "failed";
+          timestamp?: string;
+          errors?: Array<{ title?: string; message?: string }>;
+        }>;
       };
     }>;
   }>;
@@ -110,6 +125,33 @@ export async function POST(req: NextRequest) {
             wamid: message.id,
             timestamp: message.timestamp ? Number(message.timestamp) : undefined,
           });
+        }
+      }
+
+      // Delivery-status callbacks for messages WE sent. Update the matching
+      // outbound log by wamid (globally unique → safe to match without a tenant
+      // filter), so the real "Đã giao / Thất bại" status shows in the UI.
+      for (const s of change.value?.statuses ?? []) {
+        const mapped = s.status ? STATUS_MAP[s.status] : undefined;
+        if (!s.id || !mapped) continue;
+        const when = s.timestamp ? new Date(Number(s.timestamp) * 1000) : new Date();
+        const errorText = s.errors?.[0]?.title ?? s.errors?.[0]?.message;
+        try {
+          await db.whatsAppMessageLog.updateMany({
+            where: { providerMessageId: s.id },
+            data: {
+              status: mapped,
+              ...(mapped === "SENT" ? { sentAt: when } : {}),
+              ...(mapped === "DELIVERED" ? { deliveredAt: when } : {}),
+              ...(mapped === "READ" ? { readAt: when } : {}),
+              ...(mapped === "FAILED" ? { failedAt: when, error: errorText ?? "failed" } : {}),
+            },
+          });
+        } catch (e) {
+          console.error(
+            "[whatsapp-webhook] status update failed:",
+            e instanceof Error ? e.message : e,
+          );
         }
       }
     }

@@ -47,13 +47,15 @@ export function AddCustomerDialog() {
       description:
         result.whatsapp === "sent"
           ? "Đã gửi thẻ QR qua WhatsApp."
-          : result.whatsapp === "no_phone"
-            ? undefined
-            : result.whatsapp === "not_configured"
-              ? "WhatsApp chưa cấu hình — chưa gửi thẻ."
-              : result.whatsapp
-                ? `WhatsApp: ${result.whatsapp}`
-                : undefined,
+          : result.whatsapp === "sent_pending"
+            ? "Đã gửi ảnh QR tới WhatsApp — khách chỉ nhận được nếu đã nhắn cho bạn trong 24h qua. Để gửi chắc chắn cho mọi khách, cần template được Meta duyệt."
+            : result.whatsapp === "no_phone"
+              ? undefined
+              : result.whatsapp === "not_configured"
+                ? "WhatsApp chưa cấu hình — chưa gửi thẻ."
+                : result.whatsapp
+                  ? `WhatsApp chưa gửi được: ${result.whatsapp}`
+                  : undefined,
     });
     router.refresh();
     // Fetch + show the fixed membership QR right away.

@@ -65,18 +65,19 @@ export async function sendMemberCardWhatsApp(input: {
 
     let result;
     if (uploaded.ok && templateName) {
-      // NAMED variables matching the `ptc_welcome` template on Meta:
-      //   {{customer_name}} = tên khách, {{member_code}} = mã thành viên.
+      // NAMED variable matching the approved `ptc_member_card` (Utility) template
+      // on Meta: header = QR image, body has a single {{customer_name}} variable.
+      // The member code is intentionally NOT a template variable — Meta's classifier
+      // treats a "code = value" body as an Authentication template and rejects it,
+      // so the code lives only in the free-form caption path below. The QR image in
+      // the header already carries the member's identity.
       result = await sendImageTemplate(
         creds,
         input.toPhone,
         templateName,
         templateLang,
         uploaded.mediaId,
-        [
-          { name: "customer_name", text: input.name },
-          { name: "member_code", text: input.memberCode },
-        ],
+        [{ name: "customer_name", text: input.name }],
       );
     } else if (uploaded.ok) {
       result = await sendImageMessageByMediaId(creds, input.toPhone, uploaded.mediaId, caption);

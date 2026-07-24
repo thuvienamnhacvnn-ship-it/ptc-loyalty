@@ -46,7 +46,7 @@ export function AddCustomerDialog() {
       title: "Đã thêm khách hàng",
       description:
         result.whatsapp === "sent"
-          ? "Đã gửi thẻ QR qua WhatsApp."
+          ? "Đã gửi thẻ QR tới WhatsApp. Nếu khách không nhận được, dùng nút “Gửi qua WhatsApp” trong trang khách hàng."
           : result.whatsapp === "sent_pending"
             ? "Đã gửi ảnh QR tới WhatsApp — khách chỉ nhận được nếu đã nhắn cho bạn trong 24h qua. Để gửi chắc chắn cho mọi khách, cần template được Meta duyệt."
             : result.whatsapp === "no_phone"

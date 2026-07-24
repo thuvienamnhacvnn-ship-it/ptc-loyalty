@@ -97,7 +97,7 @@ export function MemberQrView({
         if (e instanceof DOMException && e.name === "AbortError") return;
       }
 
-      // 2) Desktop / no file-share: open wa.me with the public QR link so the
+      // 2) Desktop / no file-share: open WhatsApp with the public QR link so the
       //    owner confirms and presses Send manually.
       const num = toWhatsAppNumber(phone);
       if (!num) {
@@ -105,7 +105,25 @@ export function MemberQrView({
         return;
       }
       const text = publicUrl ? `${shareMessage}\n${publicUrl}` : shareMessage;
-      window.open(`https://wa.me/${num}?text=${encodeURIComponent(text)}`, "_blank", "noopener");
+      const encoded = encodeURIComponent(text);
+      const webUrl = `https://wa.me/${num}?text=${encoded}`;
+      // Prefer the WhatsApp DESKTOP app (already linked to the owner's phone → no
+      // web login/QR scan). If it isn't installed, nothing handles the protocol,
+      // so we fall back to WhatsApp Web (wa.me) shortly after. web.whatsapp.com
+      // only asks for a one-time device link when not yet logged in.
+      const appUrl = `whatsapp://send?phone=${num}&text=${encoded}`;
+      let switchedAway = false;
+      const markSwitched = () => {
+        switchedAway = true;
+      };
+      window.addEventListener("blur", markSwitched, { once: true });
+      document.addEventListener("visibilitychange", markSwitched, { once: true });
+      window.location.href = appUrl; // try the native desktop app
+      window.setTimeout(() => {
+        window.removeEventListener("blur", markSwitched);
+        document.removeEventListener("visibilitychange", markSwitched);
+        if (!switchedAway) window.open(webUrl, "_blank", "noopener"); // fallback to web
+      }, 1500);
     } finally {
       setSharing(false);
     }

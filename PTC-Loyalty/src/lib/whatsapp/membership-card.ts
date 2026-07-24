@@ -2,6 +2,7 @@ import QRCode from "qrcode";
 import { db } from "@/lib/db";
 import { createStaticQrToken } from "@/lib/qr";
 import {
+  getTemplateStatus,
   sendImageMessage,
   sendImageMessageByMediaId,
   sendImageTemplate,
@@ -55,32 +56,66 @@ export async function sendMemberCardWhatsApp(input: {
     const png = await QRCode.toBuffer(token, { errorCorrectionLevel: "M", margin: 2, width: 512 });
     const uploaded = await uploadImageMedia(creds, new Uint8Array(png));
 
-    // Delivery strategy:
-    //  1) If an approved image-header template is configured → send the TEMPLATE
-    //     (business-initiated, works for ANY new customer, no 24h window).
-    //  2) Else send the image by media id (free-form; needs 24h window / test #).
+    // Delivery strategy (best → fallback), never throwing:
+    //  1) If an image-header template is configured AND currently APPROVED on Meta
+    //     → send the TEMPLATE (business-initiated, works for ANY new customer,
+    //     outside the 24h window). We check status FIRST so an in-review/rejected
+    //     template never triggers a #132001 send error in production.
+    //  2) Else send the image by media id (free-form; needs the 24h window /
+    //     allow-listed test number).
     //  3) If the upload failed, fall back to the public image link.
     const templateName = process.env.WHATSAPP_MEMBER_TEMPLATE;
     const templateLang = process.env.WHATSAPP_MEMBER_TEMPLATE_LANG || "vi";
+    const wabaId = process.env.WHATSAPP_WABA_ID || "1014775701528488";
+
+    const freeFormImage = () =>
+      sendImageMessageByMediaId(creds, input.toPhone!, uploaded.ok ? uploaded.mediaId : "", caption);
 
     let result;
     if (uploaded.ok && templateName) {
-      // NAMED variable matching the approved `ptc_member_card` (Utility) template
-      // on Meta: header = QR image, body has a single {{customer_name}} variable.
-      // The member code is intentionally NOT a template variable — Meta's classifier
-      // treats a "code = value" body as an Authentication template and rejects it,
-      // so the code lives only in the free-form caption path below. The QR image in
-      // the header already carries the member's identity.
-      result = await sendImageTemplate(
-        creds,
-        input.toPhone,
+      const status = await getTemplateStatus(
+        creds.accessToken,
+        wabaId,
         templateName,
         templateLang,
-        uploaded.mediaId,
-        [{ name: "customer_name", text: input.name }],
+        creds.apiVersion,
       );
+      // Only SKIP the template when we positively know it is not usable. A null
+      // status means we couldn't read it (e.g. the token lacks the management
+      // permission) — in that case we still attempt the template so an approved
+      // one keeps working, and rely on the send-failure fallback below.
+      const knownNotApproved = status !== null && status !== "APPROVED";
+      if (knownNotApproved) {
+        // Do NOT call the template send API for an in-review/rejected template
+        // (this is what produced #132001). Use the free-form image instead.
+        console.warn(
+          `[membership-card] template "${templateName}" is not APPROVED (status=${status}); skipping template, using free-form image`,
+        );
+        result = await freeFormImage();
+      } else {
+        // NAMED variable matching the `ptc_member_card` (Utility) template on Meta:
+        // header = QR image, body has a single {{customer_name}} variable. The member
+        // code is intentionally NOT a template variable — Meta's classifier treats a
+        // "code = value" body as an Authentication template and rejects it, so the
+        // code lives only in the free-form caption. The QR header carries identity.
+        result = await sendImageTemplate(
+          creds,
+          input.toPhone,
+          templateName,
+          templateLang,
+          uploaded.mediaId,
+          [{ name: "customer_name", text: input.name }],
+        );
+        // Even an APPROVED (or status-unknown) template can fail → degrade to free-form.
+        if (!result.ok) {
+          console.warn(
+            `[membership-card] template "${templateName}" send failed (${result.error}); falling back to free-form image`,
+          );
+          result = await freeFormImage();
+        }
+      }
     } else if (uploaded.ok) {
-      result = await sendImageMessageByMediaId(creds, input.toPhone, uploaded.mediaId, caption);
+      result = await freeFormImage();
     } else {
       result = await sendImageMessage(
         creds,

@@ -209,6 +209,39 @@ export function sendImageTemplate(
   });
 }
 
+/**
+ * Look up an approved-template's review status in a WABA, WITHOUT sending anything.
+ * Returns the Meta status string ("APPROVED", "PENDING", "IN_APPEAL", "REJECTED",
+ * "PAUSED", "DISABLED") for the (name, language) pair, or null if it doesn't exist
+ * / the token lacks whatsapp_business_management / on any error.
+ *
+ * Used to gate template sends: we only call the template API when a template is
+ * APPROVED, so an in-review template never triggers #132001 in production.
+ */
+export async function getTemplateStatus(
+  accessToken: string,
+  wabaId: string,
+  name: string,
+  languageCode: string,
+  apiVersion = "v21.0",
+): Promise<string | null> {
+  const url = `${GRAPH_BASE}/${apiVersion}/${wabaId}/message_templates?name=${encodeURIComponent(name)}&limit=50`;
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(10000),
+    });
+    const json: { data?: Array<{ name: string; language: string; status: string }> } =
+      await res.json().catch(() => ({}));
+    if (!res.ok || !Array.isArray(json.data)) return null;
+    // The name filter can return several languages; pick the exact one.
+    const exact = json.data.find((t) => t.name === name && t.language === languageCode);
+    return (exact ?? json.data.find((t) => t.name === name))?.status ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /** Send a plain text message (only valid inside the 24h customer window). */
 export function sendTextMessage(
   creds: WhatsAppCredentials,

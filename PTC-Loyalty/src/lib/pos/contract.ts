@@ -73,6 +73,23 @@ export interface PosTransactionSummary {
   createdAt: string; // ISO
 }
 
+/** A transaction in the store-wide history list (carries the customer). */
+export interface PosTransactionListItem extends PosTransactionSummary {
+  customerId: string;
+  customerName: string;
+  memberCode: string;
+}
+
+/** Counter dashboard summary for the desktop "Tổng quan" screen. */
+export interface PosStats {
+  customersTotal: number;
+  customersNewToday: number;
+  transactionsToday: number;
+  pointsEarnedToday: number;
+  pointsRedeemedToday: number;
+  transactionsTotal: number;
+}
+
 export interface PosCustomerDetail extends PosCustomer {
   totalEarned: number;
   totalRedeemed: number;

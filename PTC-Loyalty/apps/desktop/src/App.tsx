@@ -8,6 +8,8 @@ import { PosScreen } from "./screens/PosScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { WhatsAppScreen } from "./screens/WhatsAppScreen";
 import { CustomersScreen } from "./screens/CustomersScreen";
+import { OverviewScreen } from "./screens/OverviewScreen";
+import { TransactionsScreen } from "./screens/TransactionsScreen";
 
 function UpdateBanner() {
   const [msg, setMsg] = useState<string | null>(null);
@@ -53,6 +55,10 @@ function Router() {
           <WhatsAppScreen />
         ) : phase === "customers" ? (
           <CustomersScreen />
+        ) : phase === "overview" ? (
+          <OverviewScreen />
+        ) : phase === "transactions" ? (
+          <TransactionsScreen />
         ) : (
           <PosScreen />
         )}

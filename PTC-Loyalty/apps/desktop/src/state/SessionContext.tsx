@@ -17,7 +17,9 @@ export type Phase =
   | "pos"
   | "settings"
   | "whatsapp"
-  | "customers";
+  | "customers"
+  | "overview"
+  | "transactions";
 
 interface SessionState {
   phase: Phase;

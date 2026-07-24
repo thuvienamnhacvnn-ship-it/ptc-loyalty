@@ -32,6 +32,8 @@ const bridge = {
   redeem: (input: unknown) => ipcRenderer.invoke("pos:redeem", input),
   voucherRedeem: (code: string) => ipcRenderer.invoke("pos:voucherRedeem", code),
   rewards: () => ipcRenderer.invoke("pos:rewards"),
+  stats: () => ipcRenderer.invoke("pos:stats"),
+  transactionsList: (opts: unknown) => ipcRenderer.invoke("pos:transactionsList", opts),
 
   getSettings: () => ipcRenderer.invoke("settings:get"),
   setSettings: (patch: unknown) => ipcRenderer.invoke("settings:set", patch),

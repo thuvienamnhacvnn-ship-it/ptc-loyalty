@@ -10,6 +10,8 @@ import type {
   PosEarnPreview,
   PosReward,
   PosWhatsAppStatus,
+  PosStats,
+  PosTransactionListItem,
 } from "@/lib/pos/contract";
 
 // POS read/service helpers. Business logic (points calc, fraud, DB writes) is NOT
@@ -126,6 +128,106 @@ export async function listPosCustomers(
   ]);
 
   return { customers: rows.map(toPosCustomer), total, page, pageSize };
+}
+
+function startOfToday(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/** Counter dashboard summary (tenant-scoped) for the desktop "Tổng quan". */
+export async function getPosStats(ctx: PosContext): Promise<PosStats> {
+  const today = startOfToday();
+  const biz = { businessId: ctx.businessId } as const;
+
+  const [
+    customersTotal,
+    customersNewToday,
+    transactionsToday,
+    transactionsTotal,
+    earnedAgg,
+    redeemedAgg,
+  ] = await Promise.all([
+    db.customerProfile.count({ where: biz }),
+    db.customerProfile.count({ where: { ...biz, joinedAt: { gte: today } } }),
+    db.transaction.count({ where: { ...biz, createdAt: { gte: today } } }),
+    db.transaction.count({ where: biz }),
+    db.transaction.aggregate({
+      where: { ...biz, createdAt: { gte: today }, points: { gt: 0 } },
+      _sum: { points: true },
+    }),
+    db.transaction.aggregate({
+      where: { ...biz, createdAt: { gte: today }, points: { lt: 0 } },
+      _sum: { points: true },
+    }),
+  ]);
+
+  return {
+    customersTotal,
+    customersNewToday,
+    transactionsToday,
+    transactionsTotal,
+    pointsEarnedToday: earnedAgg._sum.points ?? 0,
+    pointsRedeemedToday: Math.abs(redeemedAgg._sum.points ?? 0),
+  };
+}
+
+export interface PosTransactionListResult {
+  items: PosTransactionListItem[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+/** Store-wide transaction history (tenant-scoped, paginated). Optionally
+ *  filtered to a single customer. */
+export async function listPosTransactions(
+  ctx: PosContext,
+  opts: { page?: number; pageSize?: number; customerId?: string },
+): Promise<PosTransactionListResult> {
+  const page = Math.max(1, Math.floor(opts.page ?? 1));
+  const pageSize = Math.min(100, Math.max(1, Math.floor(opts.pageSize ?? 25)));
+  const where = {
+    businessId: ctx.businessId,
+    ...(opts.customerId ? { customerId: opts.customerId } : {}),
+  };
+
+  const [rows, total] = await Promise.all([
+    db.transaction.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        type: true,
+        points: true,
+        amount: true,
+        balanceAfter: true,
+        note: true,
+        createdAt: true,
+        customerId: true,
+        customer: { select: { firstName: true, lastName: true, memberCode: true } },
+      },
+    }),
+    db.transaction.count({ where }),
+  ]);
+
+  const items: PosTransactionListItem[] = rows.map((t) => ({
+    id: t.id,
+    type: t.type,
+    points: t.points,
+    amount: t.amount,
+    balanceAfter: t.balanceAfter,
+    note: t.note,
+    createdAt: t.createdAt.toISOString(),
+    customerId: t.customerId,
+    customerName: `${t.customer.firstName} ${t.customer.lastName ?? ""}`.trim(),
+    memberCode: t.customer.memberCode,
+  }));
+
+  return { items, total, page, pageSize };
 }
 
 export type CreateCustomerResult =

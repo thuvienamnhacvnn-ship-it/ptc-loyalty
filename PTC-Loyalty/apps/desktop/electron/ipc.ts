@@ -17,6 +17,8 @@ import type {
   PosEarnPreview,
   PosLoginResponse,
   PosReward,
+  PosStats,
+  PosTransactionListItem,
   PosTransactionResult,
   PosVoucherRedeemResult,
 } from "@shared/contract";
@@ -359,6 +361,32 @@ export async function initIpc(getWindow: () => BrowserWindow | null): Promise<vo
       ? { ok: true as const, rewards: res.data }
       : { ok: false as const, error: res.error, message: res.message };
   });
+
+  ipcMain.handle("pos:stats", async () => {
+    const res = await session.authed<PosStats>(await baseUrl(), "/api/pos/stats");
+    return res.ok
+      ? { ok: true as const, stats: res.data }
+      : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+  });
+
+  ipcMain.handle(
+    "pos:transactionsList",
+    async (_e, opts: { page?: number; pageSize?: number; customerId?: string }) => {
+      const qs = new URLSearchParams();
+      if (opts.page) qs.set("page", String(opts.page));
+      if (opts.pageSize) qs.set("pageSize", String(opts.pageSize));
+      if (opts.customerId) qs.set("customerId", opts.customerId);
+      const res = await session.authed<{
+        items: PosTransactionListItem[];
+        total: number;
+        page: number;
+        pageSize: number;
+      }>(await baseUrl(), `/api/pos/transactions/list?${qs.toString()}`);
+      return res.ok
+        ? { ok: true as const, ...res.data }
+        : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+    },
+  );
 
   // ── Settings ──────────────────────────────────────────────────────────────
   ipcMain.handle("settings:get", async () => ({

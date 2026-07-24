@@ -9,6 +9,8 @@ import {
   MessageCircle,
   Coins,
   Users,
+  LayoutDashboard,
+  Receipt,
 } from "lucide-react";
 import { useSession } from "../state/SessionContext";
 import type { Phase } from "../state/SessionContext";
@@ -21,8 +23,10 @@ export function TopBar() {
 
   // Main navigation between the counter screens.
   const nav: { phase: Phase; label: string; icon: typeof Coins }[] = [
+    { phase: "overview", label: "Tổng quan", icon: LayoutDashboard },
     { phase: "pos", label: "Bán hàng", icon: Coins },
     { phase: "customers", label: "Khách hàng", icon: Users },
+    { phase: "transactions", label: "Giao dịch", icon: Receipt },
     { phase: "whatsapp", label: "WhatsApp", icon: MessageCircle },
   ];
 

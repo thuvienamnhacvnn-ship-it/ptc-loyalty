@@ -8,6 +8,8 @@ import type {
   PosLoginResponse,
   PosReward,
   PosSessionInfo,
+  PosStats,
+  PosTransactionListItem,
   PosTransactionResult,
   PosVoucherRedeemResult,
   PosWhatsAppMessage,
@@ -135,6 +137,15 @@ export interface PosBridge {
     code: string,
   ): Promise<{ ok: true; voucher: PosVoucherRedeemResult } | Fail>;
   rewards(): Promise<{ ok: true; rewards: PosReward[] } | Fail>;
+  stats(): Promise<{ ok: true; stats: PosStats } | Fail>;
+  transactionsList(opts: {
+    page?: number;
+    pageSize?: number;
+    customerId?: string;
+  }): Promise<
+    | { ok: true; items: PosTransactionListItem[]; total: number; page: number; pageSize: number }
+    | Fail
+  >;
 
   getSettings(): Promise<{
     settings: AppSettings;

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Download, Printer, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -12,11 +11,17 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
 
 /**
  * Renders a member QR (PNG data URL) with three MANUAL actions — download,
- * print, and "Gửi qua WhatsApp". The WhatsApp action does NOT use the Cloud API:
- *  - on mobile it uses the Web Share API to share the QR PNG (owner picks
- *    WhatsApp in the native share sheet);
- *  - on desktop / when file-share is unavailable it opens wa.me with a public
- *    link to the customer's QR card, pre-filling the message (owner presses Send).
+ * print, and "Gửi qua WhatsApp". The WhatsApp action does NOT use the Cloud API.
+ *
+ * It opens a chat PRE-ADDRESSED to the customer's own registered number (so the
+ * owner never has to search contacts) and reuses the owner's existing WhatsApp
+ * session (so there's no re-login):
+ *  - mobile  → wa.me opens the WhatsApp app straight to the customer's chat;
+ *  - desktop → web.whatsapp.com/send opens WhatsApp Web straight to that chat
+ *    (skipping the api.whatsapp.com "Continue to chat" interstitial), using the
+ *    tab the owner is already logged into.
+ * The message carries a public link to the customer's QR card. The owner just
+ * presses Send.
  */
 export function MemberQrView({
   dataUrl,
@@ -38,13 +43,12 @@ export function MemberQrView({
   token: string;
 }) {
   const { toast } = useToast();
-  const [sharing, setSharing] = useState(false);
 
   const hasQr = !!dataUrl;
   const shareMessage =
     `Xin chào ${name}, đây là mã QR thành viên của bạn tại ${storeName}. ` +
     `Vui lòng lưu mã này để tích điểm trong những lần tiếp theo.`;
-  // Public, production URL to the customer's QR card (used in the wa.me message).
+  // Public, production URL to the customer's QR card (sent in the message).
   const publicUrl = APP_URL ? `${APP_URL}/card/${token}` : "";
 
   function printQr() {
@@ -76,57 +80,24 @@ export function MemberQrView({
     w.document.close();
   }
 
-  async function sendWhatsApp() {
-    if (sharing) return;
-    setSharing(true);
-    try {
-      // 1) Mobile: Web Share API — share the actual QR PNG so the shop owner can
-      //    pick WhatsApp in the native share sheet. No Cloud API involved.
-      try {
-        const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], `customer-${customerId}-qr.png`, { type: "image/png" });
-        const nav = navigator as Navigator & {
-          canShare?: (data?: { files?: File[] }) => boolean;
-        };
-        if (nav.canShare && nav.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], text: shareMessage, title: "Thẻ thành viên" });
-          return;
-        }
-      } catch (e) {
-        // Owner dismissed the native share sheet → stop (don't also open wa.me).
-        if (e instanceof DOMException && e.name === "AbortError") return;
-      }
-
-      // 2) Desktop / no file-share: open WhatsApp with the public QR link so the
-      //    owner confirms and presses Send manually.
-      const num = toWhatsAppNumber(phone);
-      if (!num) {
-        toast({ variant: "destructive", title: "Số điện thoại WhatsApp không hợp lệ." });
-        return;
-      }
-      const text = publicUrl ? `${shareMessage}\n${publicUrl}` : shareMessage;
-      const encoded = encodeURIComponent(text);
-      const webUrl = `https://wa.me/${num}?text=${encoded}`;
-      // Prefer the WhatsApp DESKTOP app (already linked to the owner's phone → no
-      // web login/QR scan). If it isn't installed, nothing handles the protocol,
-      // so we fall back to WhatsApp Web (wa.me) shortly after. web.whatsapp.com
-      // only asks for a one-time device link when not yet logged in.
-      const appUrl = `whatsapp://send?phone=${num}&text=${encoded}`;
-      let switchedAway = false;
-      const markSwitched = () => {
-        switchedAway = true;
-      };
-      window.addEventListener("blur", markSwitched, { once: true });
-      document.addEventListener("visibilitychange", markSwitched, { once: true });
-      window.location.href = appUrl; // try the native desktop app
-      window.setTimeout(() => {
-        window.removeEventListener("blur", markSwitched);
-        document.removeEventListener("visibilitychange", markSwitched);
-        if (!switchedAway) window.open(webUrl, "_blank", "noopener"); // fallback to web
-      }, 1500);
-    } finally {
-      setSharing(false);
+  function sendWhatsApp() {
+    const num = toWhatsAppNumber(phone);
+    if (!num) {
+      toast({ variant: "destructive", title: "Số điện thoại WhatsApp không hợp lệ." });
+      return;
     }
+    const text = publicUrl ? `${shareMessage}\n${publicUrl}` : shareMessage;
+    const encoded = encodeURIComponent(text);
+    const isMobile =
+      typeof navigator !== "undefined" &&
+      /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
+    // Both open a chat pre-addressed to the customer's number and reuse the
+    // owner's existing WhatsApp login. wa.me on mobile jumps into the app chat;
+    // web.whatsapp.com/send on desktop goes straight to the WhatsApp Web chat.
+    const url = isMobile
+      ? `https://wa.me/${num}?text=${encoded}`
+      : `https://web.whatsapp.com/send?phone=${num}&text=${encoded}`;
+    window.open(url, "_blank", "noopener");
   }
 
   return (
@@ -155,7 +126,7 @@ export function MemberQrView({
           variant="outline"
           size="sm"
           onClick={sendWhatsApp}
-          disabled={!hasQr || !phone || sharing}
+          disabled={!hasQr || !phone}
           className="text-success"
         >
           <MessageCircle className="h-4 w-4" /> Gửi qua WhatsApp

@@ -5,23 +5,19 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { toWhatsAppNumber } from "@/lib/phone";
 
-// Inlined at build time → the production origin (https://ptc-loyalty.com),
-// never localhost in a production build, so shared links are always public.
-const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
-
 /**
  * Renders a member QR (PNG data URL) with three MANUAL actions — download,
  * print, and "Gửi qua WhatsApp". The WhatsApp action does NOT use the Cloud API.
  *
- * It opens a chat PRE-ADDRESSED to the customer's own registered number (so the
- * owner never has to search contacts) and reuses the owner's existing WhatsApp
- * session (so there's no re-login):
- *  - mobile  → wa.me opens the WhatsApp app straight to the customer's chat;
- *  - desktop → web.whatsapp.com/send opens WhatsApp Web straight to that chat
- *    (skipping the api.whatsapp.com "Continue to chat" interstitial), using the
- *    tab the owner is already logged into.
- * The message carries a public link to the customer's QR card. The owner just
- * presses Send.
+ * To actually send the QR IMAGE (not a link), it uses the Web Share API to
+ * share the PNG — the only way to put the image itself into a WhatsApp chat
+ * without the Cloud API (wa.me links can carry text only). On mobile the native
+ * share sheet lets the owner pick WhatsApp → the customer. On desktop, where
+ * file-share to WhatsApp isn't available, it downloads the QR and opens the
+ * customer's chat so the owner attaches the just-downloaded image.
+ *
+ * `token` is accepted for compatibility with callers but is no longer used here
+ * (the flow sends the image, not the /card/<token> link).
  */
 export function MemberQrView({
   dataUrl,
@@ -31,7 +27,6 @@ export function MemberQrView({
   phone,
   storeName,
   logoUrl,
-  token,
 }: {
   dataUrl: string;
   name: string;
@@ -48,8 +43,6 @@ export function MemberQrView({
   const shareMessage =
     `Xin chào ${name}, đây là mã QR thành viên của bạn tại ${storeName}. ` +
     `Vui lòng lưu mã này để tích điểm trong những lần tiếp theo.`;
-  // Public, production URL to the customer's QR card (sent in the message).
-  const publicUrl = APP_URL ? `${APP_URL}/card/${token}` : "";
 
   function printQr() {
     const w = window.open("", "_blank", "width=420,height=600");
@@ -80,24 +73,51 @@ export function MemberQrView({
     w.document.close();
   }
 
-  function sendWhatsApp() {
-    const num = toWhatsAppNumber(phone);
-    if (!num) {
-      toast({ variant: "destructive", title: "Số điện thoại WhatsApp không hợp lệ." });
-      return;
+  function downloadQr() {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `customer-${customerId}-qr.png`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  async function sendWhatsApp() {
+    // Primary: share the ACTUAL QR image. This is the only way to put the image
+    // itself into a WhatsApp chat without the Cloud API — WhatsApp's click-to-
+    // chat links (wa.me) can carry text only, never an attachment. On mobile the
+    // native share sheet lets the owner pick WhatsApp → the customer.
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `customer-${customerId}-qr.png`, { type: "image/png" });
+      const nav = navigator as Navigator & {
+        canShare?: (data?: { files?: File[] }) => boolean;
+      };
+      if (nav.canShare && nav.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: shareMessage, title: "Thẻ thành viên" });
+        return;
+      }
+    } catch (e) {
+      // Owner dismissed the native share sheet → stop.
+      if (e instanceof DOMException && e.name === "AbortError") return;
     }
-    const text = publicUrl ? `${shareMessage}\n${publicUrl}` : shareMessage;
-    const encoded = encodeURIComponent(text);
-    const isMobile =
-      typeof navigator !== "undefined" &&
-      /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent);
-    // Both open a chat pre-addressed to the customer's number and reuse the
-    // owner's existing WhatsApp login. wa.me on mobile jumps into the app chat;
-    // web.whatsapp.com/send on desktop goes straight to the WhatsApp Web chat.
-    const url = isMobile
-      ? `https://wa.me/${num}?text=${encoded}`
-      : `https://web.whatsapp.com/send?phone=${num}&text=${encoded}`;
-    window.open(url, "_blank", "noopener");
+
+    // Desktop fallback: file-share to WhatsApp isn't available, so download the
+    // QR image and open the customer's chat — the owner drags/attaches the
+    // just-downloaded image and presses Send.
+    downloadQr();
+    const num = toWhatsAppNumber(phone);
+    if (num) {
+      window.open(
+        `https://web.whatsapp.com/send?phone=${num}&text=${encodeURIComponent(shareMessage)}`,
+        "_blank",
+        "noopener",
+      );
+    }
+    toast({
+      title: "Đã tải ảnh QR về máy",
+      description: "Kéo (đính kèm) ảnh QR vừa tải vào khung chat WhatsApp rồi bấm gửi.",
+    });
   }
 
   return (

@@ -123,6 +123,8 @@ export async function createPosCustomer(
     },
     select: { ...customerSelect, qrSecret: true },
   });
+  // Note: the /api/pos/customers route sends the WhatsApp membership card after
+  // this returns (so it isn't done here — avoids a double send).
   return {
     ok: true,
     customer: toPosCustomer(created),

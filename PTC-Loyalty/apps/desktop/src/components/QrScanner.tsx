@@ -9,6 +9,8 @@ type BarcodeDetectorLike = {
 interface Props {
   preferredCameraId: string | null;
   onToken: (token: string) => void;
+  /** Called when staff pick a different camera, so the choice can be persisted. */
+  onCameraChange?: (deviceId: string) => void;
   disabled?: boolean;
 }
 
@@ -16,7 +18,7 @@ interface Props {
  *  else falls back to jsQR (canvas) — so it works even when Electron's Chromium
  *  ships without BarcodeDetector. USB scanners are handled separately (they act
  *  as keyboard input — see PosScreen). */
-export function QrScanner({ preferredCameraId, onToken, disabled }: Props) {
+export function QrScanner({ preferredCameraId, onToken, onCameraChange, disabled }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<BarcodeDetectorLike | null>(null);
@@ -143,6 +145,7 @@ export function QrScanner({ preferredCameraId, onToken, disabled }: Props) {
 
   function switchCamera(id: string) {
     setActiveId(id);
+    if (id) onCameraChange?.(id); // persist the chosen USB camera
     stop();
     setTimeout(start, 150);
   }

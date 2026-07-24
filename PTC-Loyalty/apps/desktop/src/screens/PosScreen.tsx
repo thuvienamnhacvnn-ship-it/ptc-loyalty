@@ -17,6 +17,7 @@ import {
   MessageCircle,
   CloudOff,
   RefreshCcw,
+  Download,
 } from "lucide-react";
 import type {
   PosCustomer,
@@ -72,7 +73,10 @@ export function PosScreen() {
   const [cLast, setCLast] = useState("");
   const [cPhone, setCPhone] = useState("");
   const [cBirth, setCBirth] = useState("");
-  const [qr, setQr] = useState<{ dataUrl: string; name: string; memberCode: string } | null>(null);
+  const [qr, setQr] = useState<
+    { dataUrl: string; name: string; memberCode: string; phone: string | null } | null
+  >(null);
+  const [qrHint, setQrHint] = useState<string | null>(null);
   // edit / delete customer
   const [editMode, setEditMode] = useState(false);
   const [eFirst, setEFirst] = useState("");
@@ -345,7 +349,21 @@ export function PosScreen() {
       setLookupError(res.message);
       return;
     }
-    setQr({ dataUrl: res.qr.dataUrl, name: res.customer.name, memberCode: res.customer.memberCode });
+    setQr({
+      dataUrl: res.qr.dataUrl,
+      name: res.customer.name,
+      memberCode: res.customer.memberCode,
+      phone: cPhone.trim() || null,
+    });
+    // Surface the auto WhatsApp result; if it didn't truly deliver, nudge staff
+    // to use the manual "Gửi QR qua WhatsApp" button below.
+    setQrHint(
+      res.whatsapp === "sent"
+        ? "Đã gửi thẻ QR qua WhatsApp."
+        : res.whatsapp === "no_phone" || !res.whatsapp
+          ? null
+          : "Chưa gửi tự động được — dùng nút “Gửi QR qua WhatsApp” bên dưới.",
+    );
     setShowCreate(false);
     setCFirst("");
     setCLast("");
@@ -359,10 +377,43 @@ export function PosScreen() {
     const res = await window.pos.customerQr(customer.id);
     setBusy(false);
     if (res.ok) {
-      setQr({ dataUrl: res.qr.dataUrl, name: customer.name, memberCode: customer.memberCode });
+      setQr({
+        dataUrl: res.qr.dataUrl,
+        name: customer.name,
+        memberCode: customer.memberCode,
+        phone: customer.phone ?? null,
+      });
+      setQrHint(null);
     } else {
       setLookupError(res.message);
     }
+  }
+
+  // Manual "send QR image over WhatsApp" (no Cloud API): copy the QR to the
+  // clipboard + open WhatsApp to the customer's chat; staff paste + Send.
+  async function shareQrWhatsApp() {
+    if (!qr) return;
+    const storeName = s.session?.business.name ?? "cửa hàng chúng tôi";
+    const message =
+      `Xin chào ${qr.name}, đây là mã QR thành viên của bạn tại ${storeName}. ` +
+      `Vui lòng lưu mã này để tích điểm trong những lần tiếp theo.`;
+    const res = await window.pos.shareQrWhatsApp({ dataUrl: qr.dataUrl, phone: qr.phone, message });
+    if (!res.ok) {
+      setQrHint(`Lỗi: ${res.error}`);
+      return;
+    }
+    if (res.invalidPhone) {
+      setQrHint("Đã copy ảnh QR. Khách chưa có số WhatsApp hợp lệ — mở chat thủ công rồi dán (Ctrl+V) ảnh.");
+    } else {
+      setQrHint("Đã copy ảnh QR + mở chat WhatsApp. Dán (Ctrl+V) ảnh vào khung chat rồi bấm gửi.");
+    }
+  }
+
+  async function saveQrImage() {
+    if (!qr) return;
+    const res = await window.pos.saveQr({ dataUrl: qr.dataUrl, memberCode: qr.memberCode });
+    if (res.ok) setQrHint(`Đã lưu ảnh: ${res.filePath}`);
+    else if (!res.canceled) setQrHint(`Lưu lỗi: ${res.error ?? ""}`);
   }
 
   function openEdit() {
@@ -458,11 +509,22 @@ export function PosScreen() {
           <p className="muted" style={{ fontSize: 13 }}>
             Mã cố định — khách có thể chụp lại hoặc quét ngay để tích điểm.
           </p>
-          <div className="row" style={{ marginTop: 6, justifyContent: "center" }}>
-            <button onClick={() => setQr(null)}>
-              <RotateCcw size={16} /> Xong
+          <div className="grid" style={{ gap: 8, marginTop: 6 }}>
+            <button className="success" onClick={shareQrWhatsApp}>
+              <MessageCircle size={16} /> Gửi QR qua WhatsApp
             </button>
+            <div className="row" style={{ justifyContent: "center" }}>
+              <button className="ghost" onClick={saveQrImage}>
+                <Download size={16} /> Lưu ảnh
+              </button>
+              <button className="ghost" onClick={() => { setQr(null); setQrHint(null); }}>
+                <RotateCcw size={16} /> Xong
+              </button>
+            </div>
           </div>
+          {qrHint && (
+            <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>{qrHint}</p>
+          )}
         </div>
       </div>
     );
@@ -807,7 +869,15 @@ export function PosScreen() {
 
       <div className="card">
         <h2>Quét mã QR thành viên</h2>
-        <QrScanner preferredCameraId={cameraId} onToken={handleToken} disabled={busy} />
+        <QrScanner
+          preferredCameraId={cameraId}
+          onToken={handleToken}
+          onCameraChange={(id) => {
+            setCameraId(id);
+            window.pos.setSettings({ cameraId: id });
+          }}
+          disabled={busy}
+        />
         <div className="hint" style={{ marginTop: 8 }}>
           Máy quét QR USB (dạng bàn phím) cũng hoạt động — chỉ cần quét, không cần bật camera.
         </div>

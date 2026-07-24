@@ -57,7 +57,13 @@ export interface PosBridge {
     email?: string;
     birthDate?: string;
   }): Promise<
-    { ok: true; customer: PosCustomer; qr: { token: string; dataUrl: string } } | Fail
+    | {
+        ok: true;
+        customer: PosCustomer;
+        qr: { token: string; dataUrl: string };
+        whatsapp?: string;
+      }
+    | Fail
   >;
   updateCustomer(
     id: string,
@@ -82,6 +88,21 @@ export interface PosBridge {
     message: string;
     customerId?: string;
   }): Promise<{ ok: true; messageId: string } | Fail>;
+  /** Copy the QR PNG to the clipboard + open WhatsApp (Desktop app → wa.me)
+   *  straight to the customer's chat, so staff paste the image and press Send. */
+  shareQrWhatsApp(input: {
+    dataUrl: string;
+    phone: string | null;
+    message: string;
+  }): Promise<
+    | { ok: true; copied: boolean; opened: boolean; invalidPhone: boolean }
+    | { ok: false; error: string }
+  >;
+  /** Save the QR PNG to disk via a native save dialog. */
+  saveQr(input: {
+    dataUrl: string;
+    memberCode: string;
+  }): Promise<{ ok: true; filePath: string } | { ok: false; canceled?: boolean; error?: string }>;
   preview(
     customerId: string,
     amount: number,

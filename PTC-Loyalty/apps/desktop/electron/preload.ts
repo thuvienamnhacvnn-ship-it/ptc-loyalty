@@ -22,6 +22,8 @@ const bridge = {
   customerQr: (id: string) => ipcRenderer.invoke("pos:customerQr", id),
   whatsappMessages: (limit?: number) => ipcRenderer.invoke("pos:whatsappMessages", limit),
   whatsappSend: (input: unknown) => ipcRenderer.invoke("pos:whatsappSend", input),
+  shareQrWhatsApp: (input: unknown) => ipcRenderer.invoke("pos:shareQrWhatsApp", input),
+  saveQr: (input: unknown) => ipcRenderer.invoke("pos:saveQr", input),
   preview: (customerId: string, amount: number) =>
     ipcRenderer.invoke("pos:preview", customerId, amount),
 

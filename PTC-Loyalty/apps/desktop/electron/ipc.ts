@@ -1,4 +1,5 @@
-import { ipcMain, BrowserWindow } from "electron";
+import { ipcMain, BrowserWindow, clipboard, nativeImage, shell, dialog } from "electron";
+import { writeFile } from "node:fs/promises";
 import { defaultApiBaseUrl, normalizeApiBaseUrl } from "./config";
 import {
   loadSettings,
@@ -21,6 +22,18 @@ import type {
 } from "@shared/contract";
 
 let settings: AppSettings;
+
+/** Normalise a phone number to WhatsApp digits form (German local 0 → 49). */
+function toWaNumber(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  let d = raw.trim().replace(/[^\d+]/g, "");
+  if (d.startsWith("+")) d = d.slice(1);
+  else if (d.startsWith("00")) d = d.slice(2);
+  else if (d.startsWith("0")) d = "49" + d.slice(1);
+  d = d.replace(/\D/g, "");
+  if (d.length < 8 || d.length > 15) return null;
+  return d;
+}
 
 async function baseUrl(): Promise<string> {
   if (settings.apiBaseUrl) {
@@ -87,7 +100,7 @@ export async function initIpc(getWindow: () => BrowserWindow | null): Promise<vo
         whatsapp?: string;
       }>(await baseUrl(), "/api/pos/customers", { method: "POST", body: input });
       return res.ok
-        ? { ok: true as const, customer: res.data.customer, qr: res.data.qr }
+        ? { ok: true as const, customer: res.data.customer, qr: res.data.qr, whatsapp: res.data.whatsapp }
         : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
     },
   );
@@ -263,6 +276,61 @@ export async function initIpc(getWindow: () => BrowserWindow | null): Promise<vo
       return res.ok
         ? { ok: true as const, messageId: res.data.messageId }
         : { ok: false as const, error: res.error, message: res.message, offline: res.offline };
+    },
+  );
+
+  // Manual "send QR image over WhatsApp" — the desktop way to get the actual
+  // IMAGE into the customer's chat without the Cloud API:
+  //  1) copy the QR PNG to the system clipboard,
+  //  2) open the WhatsApp Desktop app straight to the customer's chat (falling
+  //     back to WhatsApp Web if the app isn't installed).
+  // Staff then paste (Ctrl+V) the QR into the chat and press Send.
+  ipcMain.handle(
+    "pos:shareQrWhatsApp",
+    async (_e, input: { dataUrl: string; phone: string | null; message: string }) => {
+      try {
+        const img = nativeImage.createFromDataURL(input.dataUrl);
+        const copied = !img.isEmpty();
+        if (copied) clipboard.writeImage(img);
+
+        const num = toWaNumber(input.phone);
+        let opened = false;
+        if (num) {
+          const text = encodeURIComponent(input.message);
+          try {
+            await shell.openExternal(`whatsapp://send?phone=${num}&text=${text}`);
+            opened = true;
+          } catch {
+            // WhatsApp Desktop app not installed → open WhatsApp Web instead.
+            await shell.openExternal(`https://wa.me/${num}?text=${text}`);
+            opened = true;
+          }
+        }
+        return { ok: true as const, copied, opened, invalidPhone: !num };
+      } catch (e) {
+        return { ok: false as const, error: e instanceof Error ? e.message : "share_failed" };
+      }
+    },
+  );
+
+  // Save the QR PNG to disk (a native save dialog) — the desktop "download".
+  ipcMain.handle(
+    "pos:saveQr",
+    async (_e, input: { dataUrl: string; memberCode: string }) => {
+      const win = getWindow();
+      const { canceled, filePath } = await dialog.showSaveDialog(win ?? undefined!, {
+        title: "Lưu mã QR",
+        defaultPath: `qr-${input.memberCode}.png`,
+        filters: [{ name: "PNG", extensions: ["png"] }],
+      });
+      if (canceled || !filePath) return { ok: false as const, canceled: true };
+      try {
+        const b64 = input.dataUrl.split(",")[1] ?? "";
+        await writeFile(filePath, Buffer.from(b64, "base64"));
+        return { ok: true as const, filePath };
+      } catch (e) {
+        return { ok: false as const, error: e instanceof Error ? e.message : "save_failed" };
+      }
     },
   );
 

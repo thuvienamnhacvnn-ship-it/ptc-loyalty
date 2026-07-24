@@ -62,8 +62,16 @@ export async function POST(req: NextRequest) {
     toPhone: phone,
   });
 
+  // Honest status: only an APPROVED template ("sent") reaches any customer; a
+  // free-form/link send ("sent_pending") only lands inside the 24h window.
+  const whatsapp = wa.ok
+    ? wa.method === "template"
+      ? "sent"
+      : "sent_pending"
+    : wa.skipped ?? wa.error;
+
   return NextResponse.json(
-    { customer: result.customer, qr, whatsapp: wa.ok ? "sent" : wa.skipped ?? wa.error },
+    { customer: result.customer, qr, whatsapp },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

@@ -104,18 +104,22 @@ export async function sendMemberCardWhatsApp(input: {
         result = await freeFormImage();
         method = "freeform";
       } else {
-        // NAMED variable matching the `ptc_member_card` (Utility) template on Meta:
-        // header = QR image, body has a single {{customer_name}} variable. The member
-        // code is intentionally NOT a template variable — Meta's classifier treats a
-        // "code = value" body as an Authentication template and rejects it, so the
-        // code lives only in the free-form caption. The QR header carries identity.
+        // NAMED variables matching the approved `ptc_welcome` template on Meta:
+        // header = QR image, body has {{customer_name}} + {{member_code}}. (An
+        // APPROVED template delivers to ANY customer immediately, with no 24h
+        // window.) The template author decides the variables; ours has both, so
+        // we always pass both. If you point WHATSAPP_MEMBER_TEMPLATE at a template
+        // with a different variable set, update this list to match it exactly.
         result = await sendImageTemplate(
           creds,
           input.toPhone,
           templateName,
           templateLang,
           uploaded.mediaId,
-          [{ name: "customer_name", text: input.name }],
+          [
+            { name: "customer_name", text: input.name },
+            { name: "member_code", text: input.memberCode },
+          ],
         );
         if (result.ok) {
           method = "template";

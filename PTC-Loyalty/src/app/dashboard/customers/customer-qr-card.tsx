@@ -29,7 +29,16 @@ export function CustomerQrCard({ customerId }: { customerId: string }) {
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : state.ok ? (
-          <MemberQrView dataUrl={state.dataUrl} name={state.name} memberCode={state.memberCode} />
+          <MemberQrView
+            dataUrl={state.dataUrl}
+            name={state.name}
+            memberCode={state.memberCode}
+            customerId={state.customerId}
+            phone={state.phone}
+            storeName={state.storeName}
+            logoUrl={state.logoUrl}
+            token={state.token}
+          />
         ) : (
           <p className="py-6 text-center text-sm text-destructive">{state.error}</p>
         )}

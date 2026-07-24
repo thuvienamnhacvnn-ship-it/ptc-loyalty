@@ -86,7 +86,16 @@ export function AddCustomerDialog() {
               </DialogDescription>
             </DialogHeader>
             {qr.ok ? (
-              <MemberQrView dataUrl={qr.dataUrl} name={qr.name} memberCode={qr.memberCode} />
+              <MemberQrView
+                dataUrl={qr.dataUrl}
+                name={qr.name}
+                memberCode={qr.memberCode}
+                customerId={qr.customerId}
+                phone={qr.phone}
+                storeName={qr.storeName}
+                logoUrl={qr.logoUrl}
+                token={qr.token}
+              />
             ) : (
               <p className="text-center text-sm text-destructive">{qr.error}</p>
             )}

@@ -18,17 +18,41 @@ export interface FormResult {
 }
 
 export type CustomerQrResult =
-  | { ok: true; dataUrl: string; token: string; memberCode: string; name: string }
+  | {
+      ok: true;
+      dataUrl: string;
+      token: string;
+      memberCode: string;
+      name: string;
+      customerId: string;
+      phone: string | null;
+      storeName: string;
+      logoUrl: string | null;
+    }
   | { ok: false; error: string };
 
-/** Fixed membership QR (PNG data URL) for a customer — staff view/print. */
+/** Fixed membership QR (PNG data URL) for a customer — staff view/print/share.
+ *  Also returns the phone + store name/logo so the detail page can offer a
+ *  manual "Gửi qua WhatsApp" (Web Share / wa.me) without the Cloud API. */
 export async function customerQrDataUrl(customerId: string): Promise<CustomerQrResult> {
   const ctx = await requireBusinessContext();
   const c = await db.customerProfile.findFirst({
     where: { id: customerId, businessId: ctx.businessId },
-    select: { id: true, memberCode: true, qrSecret: true, firstName: true, lastName: true },
+    select: {
+      id: true,
+      memberCode: true,
+      qrSecret: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+    },
   });
   if (!c) return { ok: false, error: "Không tìm thấy khách hàng." };
+
+  const business = await db.business.findUnique({
+    where: { id: ctx.businessId },
+    select: { name: true, branding: { select: { logoUrl: true } } },
+  });
 
   const { token, dataUrl } = await renderMemberQrPng({
     businessId: ctx.businessId,
@@ -42,6 +66,10 @@ export async function customerQrDataUrl(customerId: string): Promise<CustomerQrR
     token,
     memberCode: c.memberCode,
     name: `${c.firstName} ${c.lastName ?? ""}`.trim(),
+    customerId: c.id,
+    phone: c.phone ?? null,
+    storeName: business?.name ?? "PTC Loyalty",
+    logoUrl: business?.branding?.logoUrl ?? null,
   };
 }
 

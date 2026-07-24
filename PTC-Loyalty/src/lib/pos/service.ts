@@ -107,8 +107,8 @@ export async function createPosCustomer(
     phone: input.phone,
     email: input.email,
   });
-  if (conflict === "phone") return { ok: false, error: "phone_taken" };
-  if (conflict === "email") return { ok: false, error: "email_taken" };
+  if (conflict?.field === "phone") return { ok: false, error: "phone_taken" };
+  if (conflict?.field === "email") return { ok: false, error: "email_taken" };
 
   const bd = input.birthDate ? new Date(input.birthDate) : null;
   const created = await db.customerProfile.create({
@@ -158,8 +158,8 @@ export async function updatePosCustomer(
     email: input.email,
     excludeId: customerId,
   });
-  if (conflict === "phone") return { ok: false, error: "phone_taken" };
-  if (conflict === "email") return { ok: false, error: "email_taken" };
+  if (conflict?.field === "phone") return { ok: false, error: "phone_taken" };
+  if (conflict?.field === "email") return { ok: false, error: "email_taken" };
 
   const bd = input.birthDate ? new Date(input.birthDate) : null;
   await db.customerProfile.update({

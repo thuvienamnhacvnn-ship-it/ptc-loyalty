@@ -160,8 +160,10 @@ export async function createCustomer(
 
   // Reject duplicate phone / email within this business.
   const conflict = await findCustomerConflict(ctx.businessId, { phone: d.phone, email: d.email });
-  if (conflict === "phone") return { ok: false, error: "Số điện thoại này đã được đăng ký." };
-  if (conflict === "email") return { ok: false, error: "Email này đã được đăng ký." };
+  if (conflict?.field === "phone")
+    return { ok: false, error: `Số điện thoại này đã được đăng ký cho khách "${conflict.name}". Hãy tìm và xóa khách đó nếu muốn dùng lại số này.` };
+  if (conflict?.field === "email")
+    return { ok: false, error: `Email này đã được đăng ký cho khách "${conflict.name}".` };
 
   // memberCode + qrSecret (schema default cuid) are generated automatically, so
   // every new customer immediately has a unique, fixed membership QR.
@@ -235,8 +237,10 @@ export async function updateCustomer(
     email: d.email,
     excludeId: d.customerId,
   });
-  if (conflict === "phone") return { ok: false, error: "Số điện thoại này đã được đăng ký." };
-  if (conflict === "email") return { ok: false, error: "Email này đã được đăng ký." };
+  if (conflict?.field === "phone")
+    return { ok: false, error: `Số điện thoại này đã được đăng ký cho khách "${conflict.name}".` };
+  if (conflict?.field === "email")
+    return { ok: false, error: `Email này đã được đăng ký cho khách "${conflict.name}".` };
 
   const bd = d.birthDate ? new Date(d.birthDate) : null;
   await db.customerProfile.update({

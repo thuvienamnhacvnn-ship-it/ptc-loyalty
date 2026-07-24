@@ -62,11 +62,12 @@ export async function joinBusiness(
   }
 
   // Reject duplicate phone / email already used by a customer of this business.
+  // Self-signup: keep the message generic (never leak another customer's name).
   const conflict = await findCustomerConflict(business.id, { phone: d.phone, email });
-  if (conflict === "phone") {
+  if (conflict?.field === "phone") {
     return { fieldErrors: { phone: ["Số điện thoại này đã được đăng ký."] } };
   }
-  if (conflict === "email") {
+  if (conflict?.field === "email") {
     return { fieldErrors: { email: ["Email này đã được đăng ký."] } };
   }
 

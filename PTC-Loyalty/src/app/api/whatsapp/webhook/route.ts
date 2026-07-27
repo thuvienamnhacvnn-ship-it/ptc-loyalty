@@ -2,7 +2,7 @@
 //   GET  → Meta subscription verification handshake (returns hub.challenge)
 //   POST → incoming message / event notifications (logged, always 200 OK)
 //
-// URL:  https://ptc-loyalty.vercel.app/api/whatsapp/webhook
+// URL:  https://ptc-bonus.com/api/whatsapp/webhook
 // Docs: https://developers.facebook.com/docs/whatsapp/cloud-api/webhooks
 //
 // NOTE: this project also has a tenant-scoped delivery-status webhook at

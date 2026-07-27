@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { verifyQrToken } from "@/lib/qr";
 
 // Public, standalone membership-card page (NOT under the authed /member portal).
-// The manual "Gửi qua WhatsApp" flow links here (https://ptc-loyalty.com/card/<token>).
+// The manual "Gửi qua WhatsApp" flow links here (https://ptc-bonus.com/card/<token>).
 // The token is HMAC-signed, so only a valid token renders — the raw customer id
 // is never guessable. No login required.
 export const runtime = "nodejs";

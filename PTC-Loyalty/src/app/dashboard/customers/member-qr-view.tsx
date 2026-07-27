@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { toWhatsAppNumber } from "@/lib/phone";
 
-// Inlined at build time → the production origin (https://ptc-loyalty.com), never
+// Inlined at build time → the production origin (https://ptc-bonus.com), never
 // localhost in a production build, so the shared QR link is always public.
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
 

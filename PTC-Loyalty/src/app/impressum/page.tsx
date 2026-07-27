@@ -35,7 +35,7 @@ export default function ImpressumPage() {
         <br />
         E-Mail: <strong>ptc.creative.vn@gmail.com</strong>
         <br />
-        Website: <strong>https://ptc-loyalty.com</strong>
+        Website: <strong>https://ptc-bonus.com</strong>
       </p>
 
       <h2>Registereintrag</h2>

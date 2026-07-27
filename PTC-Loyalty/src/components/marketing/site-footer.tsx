@@ -22,6 +22,7 @@ const groups = [
   {
     title: "Pháp lý",
     links: [
+      { href: "/impressum", label: "Impressum" },
       { href: "/privacy", label: "Bảo mật" },
       { href: "/terms", label: "Điều khoản" },
       { href: "/cookies", label: "Cookies" },
@@ -43,11 +44,13 @@ export function SiteFooter() {
             EU.
           </p>
           <div className="space-y-1.5 pt-1 text-sm text-muted-foreground">
-            <p className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" /> Berlin, Deutschland
+            <p className="font-medium text-foreground">A&amp;T VisioInvestment GmbH</p>
+            <p className="flex items-start gap-2">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> Kranoldstraße 24,
+              12621 Berlin, Deutschland
             </p>
             <p className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-primary" /> hello@ptc-loyalty.de
+              <Mail className="h-4 w-4 text-primary" /> ptc.creative.vn@gmail.com
             </p>
           </div>
         </div>
@@ -73,7 +76,7 @@ export function SiteFooter() {
 
       <div className="border-t">
         <div className="container flex flex-col items-center justify-between gap-2 py-6 text-sm text-muted-foreground md:flex-row">
-          <p>© {new Date().getFullYear()} PTC Loyalty Platform. Alle Rechte vorbehalten.</p>
+          <p>© {new Date().getFullYear()} A&amp;T VisioInvestment GmbH — PTC Loyalty. Alle Rechte vorbehalten.</p>
           <p className="flex items-center gap-2">
             <span className="inline-flex h-2 w-2 rounded-full bg-success" />
             EUR · Europe/Berlin · DSGVO-konform

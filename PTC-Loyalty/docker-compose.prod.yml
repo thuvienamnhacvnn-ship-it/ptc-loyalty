@@ -58,6 +58,10 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://ptc:${POSTGRES_PASSWORD}@postgres:5432/ptc_bonus?connection_limit=10&pool_timeout=20
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      # Auth.js v5 reads AUTH_URL; NEXTAUTH_URL is kept for the v4-style
+      # fallback. Behind nginx the host header is already trusted
+      # (auth.config.ts sets trustHost), these just pin the canonical origin.
+      AUTH_URL: ${NEXT_PUBLIC_APP_URL}
       NEXTAUTH_URL: ${NEXT_PUBLIC_APP_URL}
       AUTH_TRUST_HOST: "true"
       AUTH_SECRET: ${AUTH_SECRET}

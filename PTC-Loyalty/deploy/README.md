@@ -32,6 +32,25 @@ Tổng ~10 GB / 12 GB, cộng 4 GB swap do script bootstrap tạo.
 
 ---
 
+## Cách nhanh nhất: một lệnh
+
+Sau khi DNS đã trỏ (bước 1 bên dưới), SSH vào VPS bằng root và chạy:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/thuvienamnhacvnn-ship-it/ptc-loyalty/main/deploy/install.sh | bash
+```
+
+Script tự làm hết: kiểm tra RAM/đĩa/DNS → cài Docker + gia cố → tải code →
+sinh secrets → xin chứng chỉ TLS → build → khởi động → kiểm tra
+`https://ptc-bonus.com/api/health` từ ngoài vào.
+
+Chạy lại được nhiều lần — mỗi bước tự bỏ qua nếu đã xong, nên cũng dùng để
+**cập nhật code** về sau.
+
+Muốn hiểu từng bước hoặc cần xử lý thủ công thì theo phần dưới.
+
+---
+
 ## Chạy lần lượt
 
 ### 1. DNS

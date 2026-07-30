@@ -23,8 +23,19 @@ export function defaultProviderId(): string {
   return evolutionProvider.isConfigured() ? evolutionProvider.id : logProvider.id;
 }
 
-/** Resolve a provider by id, falling back to the deployment default. */
+/**
+ * Resolve a provider by id.
+ *
+ * An explicitly set WHATSAPP_PROVIDER wins over whatever a row stored: that is
+ * how an operator moves every tenant to another gateway — or to the dev stub —
+ * without rewriting rows. There is deliberately NO silent fallback when the
+ * stored provider is unconfigured: quietly rerouting messages through a
+ * different channel (or the no-op stub) would report "sent" for a message
+ * nobody received.
+ */
 export function getProvider(id?: string | null): WhatsappProvider {
+  const override = process.env.WHATSAPP_PROVIDER?.trim();
+  if (override && PROVIDERS[override]) return PROVIDERS[override];
   return PROVIDERS[id ?? ""] ?? PROVIDERS[defaultProviderId()];
 }
 

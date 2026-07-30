@@ -79,19 +79,42 @@ export function getConnection(businessId: string): Promise<WhatsAppConnection | 
   return db.whatsAppConnection.findUnique({ where: { businessId } });
 }
 
-/**
- * The session to send with, or null when this business hasn't paired its number.
- * Every outbound path funnels through here, so a disconnected tenant simply
- * sends nothing instead of falling back to somebody else's number.
- */
-export async function resolveSession(businessId: string): Promise<{
+/** Why a business cannot send right now. */
+export type SessionBlocker = "not_connected" | "provider_not_configured";
+
+export interface ResolvedSession {
   provider: WhatsappProvider;
   session: WhatsappSession;
   connection: WhatsAppConnection;
-} | null> {
+}
+
+/**
+ * The session to send with, or null when this business can't send. Every
+ * outbound path funnels through here, so a disconnected tenant simply sends
+ * nothing instead of falling back to somebody else's number.
+ *
+ * A CONNECTED row is NOT enough on its own: the deployment must actually have
+ * the gateway configured. Rows upgraded from the old Meta integration carry a
+ * stale CONNECTED status with no Web-MD session behind it, and without this
+ * check they reach the provider and fail deep inside an HTTP call.
+ */
+export async function resolveSessionOrReason(
+  businessId: string,
+): Promise<{ ok: true; value: ResolvedSession } | { ok: false; reason: SessionBlocker }> {
   const conn = await getConnection(businessId);
-  if (!conn || conn.status !== "CONNECTED" || !conn.instanceId) return null;
-  return { provider: getProvider(conn.provider), session: sessionOf(conn), connection: conn };
+  if (!conn || conn.status !== "CONNECTED" || !conn.instanceId) {
+    return { ok: false, reason: "not_connected" };
+  }
+  const provider = getProvider(conn.provider);
+  if (!provider.isConfigured()) {
+    return { ok: false, reason: "provider_not_configured" };
+  }
+  return { ok: true, value: { provider, session: sessionOf(conn), connection: conn } };
+}
+
+export async function resolveSession(businessId: string): Promise<ResolvedSession | null> {
+  const resolved = await resolveSessionOrReason(businessId);
+  return resolved.ok ? resolved.value : null;
 }
 
 export interface ConnectionView {

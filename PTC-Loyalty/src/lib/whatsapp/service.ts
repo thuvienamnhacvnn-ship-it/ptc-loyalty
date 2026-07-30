@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { enqueue, registerJob } from "@/lib/jobs/queue";
-import { resolveSession } from "./connection";
+import { resolveSessionOrReason } from "./connection";
 import {
   normalizeLanguage,
   progressLine,
@@ -328,19 +328,20 @@ registerJob<SendJobPayload>(
     }
     if (log.providerMessageId) return; // already accepted by the provider
 
-    const resolved = await resolveSession(businessId);
-    if (!resolved) {
+    const attempt = await resolveSessionOrReason(businessId);
+    if (!attempt.ok) {
       await db.whatsAppMessageLog.update({
         where: { id: logId },
         data: {
           status: "FAILED",
-          error: "not_connected",
+          error: attempt.reason,
           attempts: ctx.attempt,
           failedAt: new Date(),
         },
       });
-      return; // the business hasn't paired its number — not retriable
+      return; // no paired number / no gateway — not retriable
     }
+    const resolved = attempt.value;
 
     const snapshot = (log.payloadSnapshot ?? {}) as { textBody?: string | null };
     const result = await resolved.provider.sendText(

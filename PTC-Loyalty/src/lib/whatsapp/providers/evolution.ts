@@ -62,6 +62,11 @@ async function call(
   path: string,
   init: { method: "GET" | "POST" | "DELETE"; apiKey: string; body?: Json },
 ): Promise<HttpResult> {
+  // Without a base URL this would build a relative path and fetch() would throw
+  // "Failed to parse URL from /message/…". Fail with a readable reason instead.
+  if (!baseUrl()) {
+    return { ok: false, status: 0, body: {}, networkError: "evolution_not_configured" };
+  }
   const url = `${baseUrl()}${path}`;
   let res: Response;
   try {
@@ -239,8 +244,23 @@ async function send(
   return { ok: true, messageId: id };
 }
 
-function recipient(to: string): string | null {
-  return toWhatsAppNumber(to);
+/**
+ * Shared preflight for the three send methods: the gateway must be configured
+ * and the number must be usable. Returning a typed failure keeps every send
+ * path honest instead of letting a half-built request reach fetch().
+ */
+function preflight(to: string): { ok: true; number: string } | { ok: false; result: SendResult } {
+  if (!baseUrl() || !globalKey()) {
+    return {
+      ok: false,
+      result: { ok: false, error: "provider_not_configured", retriable: false },
+    };
+  }
+  const number = toWhatsAppNumber(to);
+  if (!number) {
+    return { ok: false, result: { ok: false, error: "invalid_phone", retriable: false } };
+  }
+  return { ok: true, number };
 }
 
 function mediaBody(
@@ -353,29 +373,29 @@ export const evolutionProvider: WhatsappProvider = {
   },
 
   async sendText(session, to, text) {
-    const number = recipient(to);
-    if (!number) return { ok: false, error: "invalid_phone", retriable: false };
+    const pre = preflight(to);
+    if (!pre.ok) return pre.result;
     const path = `/message/sendText/${encodeURIComponent(session.instanceId)}`;
     return send(
       session,
       path,
       isV1()
-        ? { number, options: { delay: 0 }, textMessage: { text } }
-        : { number, text },
+        ? { number: pre.number, options: { delay: 0 }, textMessage: { text } }
+        : { number: pre.number, text },
     );
   },
 
   async sendImage(session, to, image, caption) {
-    const number = recipient(to);
-    if (!number) return { ok: false, error: "invalid_phone", retriable: false };
+    const pre = preflight(to);
+    if (!pre.ok) return pre.result;
     const path = `/message/sendMedia/${encodeURIComponent(session.instanceId)}`;
-    return send(session, path, mediaBody(number, image, "image", caption));
+    return send(session, path, mediaBody(pre.number, image, "image", caption));
   },
 
   async sendDocument(session, to, document, caption) {
-    const number = recipient(to);
-    if (!number) return { ok: false, error: "invalid_phone", retriable: false };
+    const pre = preflight(to);
+    if (!pre.ok) return pre.result;
     const path = `/message/sendMedia/${encodeURIComponent(session.instanceId)}`;
-    return send(session, path, mediaBody(number, document, "document", caption));
+    return send(session, path, mediaBody(pre.number, document, "document", caption));
   },
 };

@@ -2,7 +2,7 @@ import QRCode from "qrcode";
 import { db } from "@/lib/db";
 import { createStaticQrToken } from "@/lib/qr";
 import { toWhatsAppNumber } from "@/lib/phone";
-import { resolveSession } from "./connection";
+import { resolveSessionOrReason } from "./connection";
 import { resolveBody } from "./service";
 import { normalizeLanguage } from "./templates";
 import type { SendResult, WhatsappProvider, WhatsappSession } from "./providers/types";
@@ -20,7 +20,10 @@ import type { SendResult, WhatsappProvider, WhatsappSession } from "./providers/
 
 export interface MemberCardResult {
   ok: boolean;
-  /** Why nothing was sent (not an error): no_phone | not_connected | toggle_off. */
+  /**
+   * Why nothing was sent — a state, not a crash:
+   * no_phone | not_connected | provider_not_configured | toggle_off.
+   */
   skipped?: string;
   error?: string;
 }
@@ -73,8 +76,9 @@ export async function sendMemberCardWhatsApp(input: {
     if (!phone) return { ok: false, skipped: "no_phone" };
 
     // The business must have paired ITS OWN number first.
-    const resolved = await resolveSession(input.businessId);
-    if (!resolved) return { ok: false, skipped: "not_connected" };
+    const attempt = await resolveSessionOrReason(input.businessId);
+    if (!attempt.ok) return { ok: false, skipped: attempt.reason };
+    const resolved = attempt.value;
     if (!resolved.connection.notifyOnSignup) return { ok: false, skipped: "toggle_off" };
 
     const provider: WhatsappProvider = resolved.provider;

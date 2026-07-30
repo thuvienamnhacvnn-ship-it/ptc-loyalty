@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { requirePosContext, posError } from "@/lib/pos/context";
-import { resolveSession } from "@/lib/whatsapp/connection";
+import { resolveSessionOrReason } from "@/lib/whatsapp/connection";
 import { toWhatsAppNumber } from "@/lib/phone";
 import { db } from "@/lib/db";
 
@@ -19,16 +19,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(posError(auth.error), { status: auth.status });
   }
 
-  const resolved = await resolveSession(auth.ctx.businessId);
-  if (!resolved) {
+  const attempt = await resolveSessionOrReason(auth.ctx.businessId);
+  if (!attempt.ok) {
     return NextResponse.json(
       {
-        error: "not_connected",
-        message: "Chưa kết nối WhatsApp. Vào Cài đặt → WhatsApp và quét mã QR đăng nhập.",
+        error: attempt.reason,
+        message:
+          attempt.reason === "provider_not_configured"
+            ? "Máy chủ chưa cấu hình WhatsApp gateway."
+            : "Chưa kết nối WhatsApp. Vào Cài đặt → WhatsApp và quét mã QR đăng nhập.",
       },
       { status: 409 },
     );
   }
+  const resolved = attempt.value;
 
   let body: { to?: unknown; message?: unknown; customerId?: unknown };
   try {

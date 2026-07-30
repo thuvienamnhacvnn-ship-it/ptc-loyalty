@@ -51,11 +51,13 @@ export function AddCustomerDialog() {
             ? undefined
             : result.whatsapp === "not_connected"
               ? "Chưa kết nối WhatsApp — vào Cài đặt → WhatsApp và quét mã QR đăng nhập để gửi thẻ tự động."
-              : result.whatsapp === "toggle_off"
-                ? "Đã tắt gửi tin nhắn chào mừng trong Cài đặt → WhatsApp."
-                : result.whatsapp
-                  ? `WhatsApp chưa gửi được: ${result.whatsapp}`
-                  : undefined,
+              : result.whatsapp === "provider_not_configured"
+                ? "Máy chủ chưa cấu hình WhatsApp gateway (EVOLUTION_API_URL). Khách vẫn có thẻ QR — dùng nút “Gửi qua WhatsApp” để gửi thủ công."
+                : result.whatsapp === "toggle_off"
+                  ? "Đã tắt gửi tin nhắn chào mừng trong Cài đặt → WhatsApp."
+                  : result.whatsapp
+                    ? `WhatsApp chưa gửi được: ${result.whatsapp}`
+                    : undefined,
     });
     router.refresh();
     // Fetch + show the fixed membership QR right away.

@@ -1,4 +1,7 @@
 import type { Config } from "tailwindcss";
+// Static import, not require(): Node 22+ loads this TS config as ESM, where
+// `require` is undefined — which crashed CSS compilation in `next dev`.
+import tailwindcssAnimate from "tailwindcss-animate";
 
 const config: Config = {
   darkMode: ["class"],
@@ -81,7 +84,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 };
 
 export default config;

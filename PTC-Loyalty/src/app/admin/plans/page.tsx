@@ -21,7 +21,9 @@ export default async function AdminPlansPage() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Gói dịch vụ</h2>
         <p className="text-sm text-muted-foreground">
-          Cấu hình gói được đồng bộ tự động khi khởi tạo hệ thống.
+          Giá và hạn mức lấy từ <code>src/lib/plans.ts</code> và được đồng bộ vào
+          DB mỗi lần mở trang này — số hiển thị bên dưới là số thật đang áp dụng
+          cho mọi thuê bao.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-3">

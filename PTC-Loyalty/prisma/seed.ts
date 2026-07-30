@@ -32,6 +32,9 @@ const tiersA = [
   { name: "Gold", level: 3, minPoints: 2000, pointsMultiplier: 1.25, color: "#ca8a04" },
 ];
 
+// Mirrors `PLANS` in src/lib/plans.ts — kept as a literal copy because tsx does
+// not resolve the `@/` tsconfig alias when running this seed standalone. Change
+// prices in src/lib/plans.ts first, then update these cents values to match.
 async function ensurePlans() {
   const plans: {
     tier: PlanTier;
@@ -42,9 +45,9 @@ async function ensurePlans() {
     maxCustomers: number;
     features: string[];
   }[] = [
-    { tier: "BASIC", name: "Basic", priceMonthly: 1900, maxBranches: 1, maxStaff: 3, maxCustomers: 500, features: ["points", "vouchers", "qr", "reports_basic"] },
+    { tier: "BASIC", name: "Basic", priceMonthly: 2900, maxBranches: 1, maxStaff: 3, maxCustomers: 500, features: ["points", "vouchers", "qr", "reports_basic"] },
     { tier: "BUSINESS", name: "Business", priceMonthly: 4900, maxBranches: 3, maxStaff: 15, maxCustomers: 5000, features: ["points", "vouchers", "qr", "reports_advanced", "campaigns", "tiers", "rewards"] },
-    { tier: "PREMIUM", name: "Premium", priceMonthly: 9900, maxBranches: 999, maxStaff: 999, maxCustomers: 1000000, features: ["points", "vouchers", "qr", "reports_advanced", "campaigns", "tiers", "rewards", "white_label", "custom_domain", "priority_support"] },
+    { tier: "PREMIUM", name: "Premium", priceMonthly: 7900, maxBranches: 999, maxStaff: 999, maxCustomers: 1000000, features: ["points", "vouchers", "qr", "reports_advanced", "campaigns", "tiers", "rewards", "white_label", "custom_domain", "priority_support"] },
   ];
   for (const p of plans) {
     await db.plan.upsert({ where: { tier: p.tier }, update: p, create: p });

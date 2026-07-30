@@ -9,8 +9,11 @@ import {
   Euro,
   AlertTriangle,
   Percent,
+  Wallet,
+  Clock,
 } from "lucide-react";
 import { db } from "@/lib/db";
+import { getRevenueSummary } from "@/lib/billing";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +32,7 @@ export default async function AdminOverview() {
     trialingSubs,
     openAlerts,
     recentBusinesses,
-    subsForMrr,
+    revenue,
   ] = await Promise.all([
     db.business.count(),
     db.business.count({ where: { status: "ACTIVE" } }),
@@ -44,13 +47,10 @@ export default async function AdminOverview() {
       take: 6,
       include: { subscription: { include: { plan: true } }, _count: { select: { customers: true } } },
     }),
-    db.subscription.findMany({
-      where: { status: "ACTIVE" },
-      include: { plan: true },
-    }),
+    getRevenueSummary(),
   ]);
 
-  const mrr = subsForMrr.reduce((sum, s) => sum + s.plan.priceMonthly, 0) / 100;
+  const mrr = revenue.mrr / 100;
   const arr = mrr * 12;
   const conversion =
     activeSubs + trialingSubs > 0
@@ -73,6 +73,19 @@ export default async function AdminOverview() {
         <StatCard label="Lượt quét QR" value={formatNumber(scanCount)} icon={ScanLine} accent="accent" />
         <StatCard label="MRR" value={formatCurrency(mrr)} icon={Euro} accent="success" />
         <StatCard label="ARR" value={formatCurrency(arr)} icon={TrendingUp} accent="success" />
+        <StatCard
+          label="Thu tháng này"
+          value={formatCurrency(revenue.collectedThisMonth / 100)}
+          icon={Wallet}
+          accent="success"
+          hint={`Đã thu tất cả: ${formatCurrency(revenue.collectedTotal / 100)}`}
+        />
+        <StatCard
+          label="Chờ thu"
+          value={formatCurrency(revenue.outstanding / 100)}
+          icon={Clock}
+          accent={revenue.outstanding > 0 ? "warning" : "primary"}
+        />
         <StatCard label="Trial → Active" value={`${conversion}%`} icon={Percent} accent="accent" />
         <StatCard label="Cảnh báo mở" value={formatNumber(openAlerts)} icon={AlertTriangle} accent={openAlerts > 0 ? "warning" : "primary"} />
       </div>

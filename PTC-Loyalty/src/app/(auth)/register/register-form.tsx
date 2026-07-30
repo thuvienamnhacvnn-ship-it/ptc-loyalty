@@ -7,17 +7,7 @@ import { registerBusiness, type ActionState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const businessTypes = [
-  { value: "restaurant", label: "Nhà hàng" },
-  { value: "cafe", label: "Quán café" },
-  { value: "nail_salon", label: "Nail salon" },
-  { value: "beauty_salon", label: "Beauty salon" },
-  { value: "retail", label: "Cửa hàng bán lẻ" },
-  { value: "supermarket", label: "Siêu thị" },
-  { value: "service", label: "Trung tâm dịch vụ" },
-  { value: "other", label: "Khác" },
-];
+import { BUSINESS_TYPES as businessTypes } from "@/lib/business-types";
 
 function SubmitButton() {
   const { pending } = useFormStatus();

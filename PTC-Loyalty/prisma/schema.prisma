@@ -36,6 +36,24 @@ enum PlanTier {
   PREMIUM
 }
 
+// How a subscription payment reached us. Most German SME tenants pay by bank
+// transfer or SEPA direct debit rather than card, so those are first-class.
+enum PaymentMethod {
+  BANK_TRANSFER
+  SEPA_DIRECT_DEBIT
+  CARD
+  PAYPAL
+  CASH
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
 enum BusinessStatus {
   ACTIVE
   SUSPENDED
@@ -190,6 +208,7 @@ model User {
   auditLogs        AuditLog[]
   notifications    Notification[]
   posRefreshTokens PosRefreshToken[]
+  recordedPayments Payment[]         @relation("PaymentRecordedBy")
 }
 
 // ── POS desktop client sessions ──────────────────────────────────────────────
@@ -293,6 +312,8 @@ model Business {
   memberships      CustomerMembership[]
   adjustments      TransactionAdjustment[]
 
+  payments         Payment[]
+
   whatsappConnection    WhatsAppConnection?
   whatsappTemplates     WhatsAppTemplate[]
   whatsappMessages      WhatsAppMessageLog[]
@@ -347,6 +368,7 @@ model Plan {
   createdAt     DateTime @default(now())
 
   subscriptions Subscription[]
+  payments      Payment[]
 }
 
 model Subscription {
@@ -363,8 +385,52 @@ model Subscription {
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   plan     Plan     @relation(fields: [planId], references: [id])
+  payments Payment[]
 
   @@index([status])
+}
+
+/// A single subscription charge against a tenant.
+///
+/// Stripe is not wired up yet, so today every row is entered by a platform
+/// admin after money actually arrives (bank transfer / SEPA). The shape is
+/// deliberately Stripe-compatible: when the integration lands, webhook handlers
+/// can write the same rows and fill `externalId` with the Stripe payment intent.
+///
+/// `amount` is in cents, like `Plan.priceMonthly`. It is snapshotted at
+/// recording time rather than read from the plan, so changing a plan's price
+/// never rewrites billing history.
+model Payment {
+  id             String        @id @default(cuid())
+  businessId     String
+  subscriptionId String?
+  planId         String?
+  amount         Int // cents
+  currency       String        @default("EUR")
+  method         PaymentMethod @default(BANK_TRANSFER)
+  status         PaymentStatus @default(PAID)
+  /// Billing period this payment covers.
+  periodStart    DateTime?
+  periodEnd      DateTime?
+  /// Invoice number or bank reference, for reconciliation.
+  reference      String?
+  note           String?
+  paidAt         DateTime?
+  /// Payment processor id, once Stripe (or similar) is connected.
+  externalId     String?
+  /// Platform admin who recorded the row. Null for machine-created rows.
+  recordedById   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  plan         Plan?         @relation(fields: [planId], references: [id], onDelete: SetNull)
+  recordedBy   User?         @relation("PaymentRecordedBy", fields: [recordedById], references: [id], onDelete: SetNull)
+
+  @@index([businessId, createdAt])
+  @@index([status])
+  @@index([paidAt])
 }
 
 // ── Org structure ────────────────────────────────────────────────────────────

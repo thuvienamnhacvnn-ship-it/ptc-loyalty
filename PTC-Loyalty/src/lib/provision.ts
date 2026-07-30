@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
+import { PLANS, planPriceCents } from "@/lib/plans";
 import type { PlanTier, Prisma } from "@prisma/client";
 
 /**
@@ -40,26 +41,30 @@ export const DEFAULT_TIERS = [
   { name: "Platinum", level: 4, minPoints: 5000, pointsMultiplier: 1.5, color: "#0ea5e9" },
 ];
 
-/** Ensure the three subscription plans exist. Idempotent. */
+/**
+ * Ensure the three subscription plans exist and match the catalog in
+ * `src/lib/plans.ts`. Idempotent — safe to call on every request.
+ *
+ * This is a one-way sync: the code is authoritative, so editing a price in
+ * `PLANS` and reloading /admin/plans is all it takes to change what businesses
+ * are billed. Existing subscriptions keep pointing at the same `Plan` row and
+ * pick the new price up automatically.
+ */
 export async function ensurePlans() {
-  const plans: {
-    tier: PlanTier;
-    name: string;
-    priceMonthly: number;
-    maxBranches: number;
-    maxStaff: number;
-    maxCustomers: number;
-    features: string[];
-  }[] = [
-    { tier: "BASIC", name: "Basic", priceMonthly: 1900, maxBranches: 1, maxStaff: 3, maxCustomers: 500, features: ["points", "vouchers", "qr", "reports_basic"] },
-    { tier: "BUSINESS", name: "Business", priceMonthly: 4900, maxBranches: 3, maxStaff: 15, maxCustomers: 5000, features: ["points", "vouchers", "qr", "reports_advanced", "campaigns", "tiers", "rewards"] },
-    { tier: "PREMIUM", name: "Premium", priceMonthly: 9900, maxBranches: 999, maxStaff: 999, maxCustomers: 1000000, features: ["points", "vouchers", "qr", "reports_advanced", "campaigns", "tiers", "rewards", "white_label", "custom_domain", "priority_support"] },
-  ];
-  for (const p of plans) {
+  for (const p of PLANS) {
+    const row = {
+      tier: p.tier as PlanTier,
+      name: p.name,
+      priceMonthly: planPriceCents(p.tier),
+      maxBranches: p.quota.maxBranches,
+      maxStaff: p.quota.maxStaff,
+      maxCustomers: p.quota.maxCustomers,
+      features: p.featureKeys,
+    };
     await db.plan.upsert({
-      where: { tier: p.tier },
-      update: { name: p.name, priceMonthly: p.priceMonthly, maxBranches: p.maxBranches, maxStaff: p.maxStaff, maxCustomers: p.maxCustomers, features: p.features },
-      create: p,
+      where: { tier: row.tier },
+      update: row,
+      create: row,
     });
   }
 }

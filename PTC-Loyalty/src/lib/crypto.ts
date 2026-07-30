@@ -2,7 +2,7 @@ import crypto from "crypto";
 
 /**
  * Authenticated symmetric encryption (AES-256-GCM) for secrets that must live in
- * the database but never reach the client — e.g. WhatsApp Cloud API access tokens.
+ * the database but never reach the client — e.g. per-tenant WhatsApp session keys.
  *
  * Ciphertext format: base64(iv):base64(authTag):base64(cipher).
  *

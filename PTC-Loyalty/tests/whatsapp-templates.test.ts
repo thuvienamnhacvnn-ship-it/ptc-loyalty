@@ -32,9 +32,28 @@ describe("WhatsApp templates", () => {
     expect(normalizeLanguage(null)).toBe("vi");
   });
 
-  it("provisions 3 keys × 3 languages = 9 templates", () => {
+  it("renders the signup welcome + QR caption in all languages", () => {
+    for (const lang of WA_LANGUAGES) {
+      const welcome = renderBody("welcome", lang, [
+        "Phở Hà Nội",
+        "Nguyễn An",
+        "PTC-1234",
+        "https://x/member",
+      ]);
+      expect(welcome).toContain("Nguyễn An");
+      expect(welcome).toContain("PTC-1234");
+      expect(welcome).not.toMatch(/\{\{\d+\}\}/);
+
+      const caption = renderBody("member_card", lang, ["Phở Hà Nội", "PTC-1234"]);
+      expect(caption).toContain("Phở Hà Nội");
+      expect(caption).not.toMatch(/\{\{\d+\}\}/);
+    }
+  });
+
+  it("provisions 5 keys × 3 languages = 15 messages", () => {
     const rows = defaultTemplateRows();
-    expect(rows).toHaveLength(9);
+    expect(rows).toHaveLength(15);
     expect(new Set(rows.map((r) => r.language)).size).toBe(3);
+    expect(rows.every((r) => r.body.length > 0)).toBe(true);
   });
 });

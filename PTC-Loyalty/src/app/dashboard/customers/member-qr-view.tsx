@@ -11,14 +11,15 @@ const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
 
 /**
  * Renders a member QR (PNG data URL) with three MANUAL actions — download,
- * print, and "Gửi qua WhatsApp". The WhatsApp action does NOT use the Cloud API.
+ * print, and "Gửi qua WhatsApp". This action is a plain click-to-chat link — it
+ * does not go through the paired session at all.
  *
  * It opens WhatsApp straight into a chat with the CUSTOMER'S OWN NUMBER — even
  * when they aren't a saved contact — so the owner never has to search a contact
  * list. WhatsApp's click-to-chat can only carry text, so the QR travels as a
  * public link (/card/<token>) the customer taps to view/save the image; the
  * owner just presses Send. (Attaching the image itself + auto-addressing the
- * number together is only possible via the Cloud API — the automatic flow.)
+ * number together is what the automatic flow does through the paired session.)
  *  - mobile  → wa.me/<number> opens the app straight into the customer's chat;
  *  - desktop → web.whatsapp.com/send?phone=<number> opens WhatsApp Web there.
  */

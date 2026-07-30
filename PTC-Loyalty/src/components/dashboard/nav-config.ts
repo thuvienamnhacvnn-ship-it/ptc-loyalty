@@ -14,6 +14,7 @@ import {
   UserCog,
   Settings,
   CreditCard,
+  QrCode,
 } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 
@@ -30,6 +31,7 @@ export const dashboardNav: { group: string; items: NavItem[] }[] = [
     items: [
       { href: "/dashboard", label: "Bảng điều khiển", icon: LayoutDashboard },
       { href: "/dashboard/scanner", label: "Quét QR", icon: ScanLine },
+      { href: "/dashboard/join-qr", label: "QR đăng ký khách", icon: QrCode },
       { href: "/dashboard/transactions", label: "Giao dịch", icon: Receipt },
     ],
   },

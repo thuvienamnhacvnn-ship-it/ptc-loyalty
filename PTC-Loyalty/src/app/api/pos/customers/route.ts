@@ -62,13 +62,9 @@ export async function POST(req: NextRequest) {
     toPhone: phone,
   });
 
-  // Honest status: only an APPROVED template ("sent") reaches any customer; a
-  // free-form/link send ("sent_pending") only lands inside the 24h window.
-  const whatsapp = wa.ok
-    ? wa.method === "template"
-      ? "sent"
-      : "sent_pending"
-    : wa.skipped ?? wa.error;
+  // Sent from the business's own WhatsApp number — "sent", or the exact reason
+  // it wasn't (no_phone | not_connected | toggle_off | error).
+  const whatsapp = wa.ok ? "sent" : wa.skipped ?? wa.error;
 
   return NextResponse.json(
     { customer: result.customer, qr, whatsapp },

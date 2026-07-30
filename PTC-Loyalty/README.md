@@ -17,7 +17,7 @@ Mỗi doanh nghiệp là một tenant riêng biệt; dữ liệu được cách 
 - **Engine giao dịch chống gian lận** — idempotency key, chống dùng lại hóa đơn, giới hạn tần suất, giới hạn điểm nhân viên, chặn tự cộng điểm, cảnh báo giao dịch lớn.
 - **Membership tiers** — Bronze → Platinum với hệ số điểm, tự động thăng hạng.
 - **Voucher · Rewards catalog · Campaigns · Reports (CSV export)**.
-- **WhatsApp Business (Meta Cloud API)** — tự động gửi thông báo giao dịch (cộng điểm / đổi quà / voucher), consent tách riêng, token mã hóa, webhook trạng thái, hàng đợi + retry, lịch sử theo tenant.
+- **WhatsApp bằng chính số của nhà hàng** — quét QR đăng nhập một lần (WhatsApp Web Multi-Device), gửi lời chào + thẻ QR khi đăng ký thành viên, thông báo cộng điểm / đổi quà / voucher; kiến trúc Provider thay thế được, **không dùng Meta Business API**.
 - **Super Admin console** — quản lý doanh nghiệp, thuê bao, gian lận, audit logs, feature flags.
 - **Customer portal** — thẻ QR, điểm, voucher, đổi quà, lịch sử, hồ sơ (GDPR).
 - **i18n** (vi/de/en), **EUR**, **Europe/Berlin**, định dạng ngày Đức, **dark mode**, **responsive**.
@@ -110,16 +110,19 @@ Trang công khai của tenant: `/business/pho-hanoi` · `/business/nail-berlin`
 | `NEXTAUTH_URL` | ✅ | URL ứng dụng (vd `http://localhost:3000`) |
 | `QR_SIGNING_SECRET` | ✅ | Secret HMAC ký token QR |
 | `NEXT_PUBLIC_APP_URL` | ✅ | URL công khai |
-| `ENCRYPTION_KEY` | ✅¹ | Khóa 32-byte (base64) mã hóa access token WhatsApp (AES-256-GCM) |
-| `WHATSAPP_APP_SECRET` | ⬜ | Meta App Secret — xác thực chữ ký webhook |
-| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | ⬜ | Token xác minh webhook (khớp với Meta) |
+| `ENCRYPTION_KEY` | ✅¹ | Khóa 32-byte (base64) mã hóa session key WhatsApp của từng nhà hàng (AES-256-GCM) |
+| `WHATSAPP_PROVIDER` | ⬜ | `evolution` (mặc định) hoặc `log` (chế độ thử, không gửi thật) |
+| `EVOLUTION_API_URL` | ✅¹ | URL gateway Evolution API (WhatsApp Web Multi-Device) |
+| `EVOLUTION_API_KEY` | ✅¹ | Global API key của gateway |
+| `EVOLUTION_API_VERSION` | ⬜ | `v2` (mặc định) hoặc `v1` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ⬜ | Bật nút đăng nhập Google |
 | `RESEND_API_KEY` / `EMAIL_FROM` | ⬜ | Gửi email (hiện mock) |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | ⬜ | Billing (hiện mock) |
 | `UPLOAD_PROVIDER_KEY` | ⬜ | Upload logo/ảnh |
 
-¹ Bắt buộc nếu dùng WhatsApp. Per-tenant Phone Number ID / WABA ID / Access Token
-được cấu hình trong **Dashboard → Settings → WhatsApp** (token lưu mã hóa theo tenant).
+¹ Bắt buộc nếu dùng WhatsApp. Mỗi nhà hàng tự kết nối **số WhatsApp của mình** bằng
+cách quét mã QR trong **Dashboard → Settings → WhatsApp** — không cần Meta Business,
+không cần xác minh doanh nghiệp. Session key của từng tenant lưu mã hóa.
 
 ---
 
@@ -167,36 +170,79 @@ src/
 Idempotency key · hóa đơn dùng một lần · giới hạn giao dịch/giờ/khách · giới hạn điểm/nhân viên ·
 chặn nhân viên tự cộng điểm · cảnh báo giao dịch lớn · audit log · bảng `FraudAlert` (LOW→CRITICAL).
 
-### 💬 WhatsApp Business (Meta Cloud API chính thức)
-- Sau khi `earnPoints()` commit thành công → gửi thông báo WhatsApp cho khách:
-  tên cửa hàng, điểm vừa nhận, tổng điểm, điểm còn thiếu để đổi quà/lên hạng, link `/member`.
-- **Gửi không đồng bộ** qua abstraction `src/lib/jobs/queue.ts` (in-process, retry có giới hạn);
-  lỗi gửi **không bao giờ** làm hỏng giao dịch tích điểm (được bọc try/catch, log QUEUED trước).
-  Đổi sang BullMQ/Upstash QStash chỉ cần thay driver trong file này.
-- **Consent tách riêng**: `CustomerCommunicationConsent.whatsappTransactional` (giao dịch) vs
-  `whatsappMarketing`. Chỉ gửi khi khách đồng ý nhận thông báo giao dịch + có số điện thoại.
-- **Bảo mật token**: access token lưu **mã hóa AES-256-GCM** (`src/lib/crypto.ts`,
-  cột `WhatsAppConnection.accessTokenCipher`), chỉ ở server, không bao giờ xuống frontend.
-- **Idempotency**: mỗi tin nhắn khóa theo `earn:<txnId>` / `redeem:<txnId>` / `voucher:<cvId>`
+### 💬 WhatsApp — gửi từ chính số của nhà hàng
+
+**Không dùng Meta Business Cloud API. Không cần Business Verification, Facebook
+Business Manager, App Review hay chờ Meta phê duyệt.** Mỗi nhà hàng dùng chính
+số WhatsApp của mình; khách của Nhà hàng A luôn nhận tin từ số của Nhà hàng A.
+
+**Kiến trúc Provider** (`src/lib/whatsapp/providers/`) — toàn bộ business logic
+chỉ phụ thuộc vào interface `WhatsappProvider`:
+
+```
+connect()  disconnect()  getStatus()  sendText()  sendImage()  sendDocument()
+```
+
+- Mặc định: **Evolution API** (`providers/evolution.ts`) — gateway WhatsApp Web
+  Multi-Device tự host, mỗi nhà hàng là một "instance".
+- `providers/log.ts` — chế độ thử khi chưa cấu hình gateway (ghi log, không gửi).
+- Thêm Baileys / Green API / CodeChat / WAHA = viết thêm **một file** trong thư
+  mục này rồi đăng ký ở `providers/index.ts`; không đụng tới business logic.
+
+**Quy trình kết nối** (Dashboard → Settings → WhatsApp):
+1. Chủ nhà hàng bấm **“Kết nối WhatsApp”**.
+2. Hệ thống hiện mã QR đăng nhập WhatsApp Web (tự làm mới khi hết hạn).
+3. Chủ nhà hàng quét bằng điện thoại (WhatsApp → Thiết bị đã liên kết).
+4. Phiên đăng nhập được lưu (`WhatsAppConnection`, session key mã hóa AES-256-GCM).
+5. Từ đó mọi tin nhắn gửi bằng chính số của nhà hàng.
+
+**Khách tự đăng ký tại bàn** — `Dashboard → QR đăng ký khách` in ra mã QR của
+quán (`/j/<slug>`). Khách quét → nhập **tên + số WhatsApp** (không cần mật khẩu,
+không cần email) → hệ thống lưu Member → lấy QR định danh **đã có sẵn**
+(`src/lib/qr.ts`, không tạo lại) → provider gửi ngay (1) lời chào kèm mã thành
+viên, (2) ảnh QR kèm hướng dẫn tích điểm, **từ chính số của nhà hàng**. Mã QR
+cũng hiện luôn trên màn hình để khách chụp lại nếu WhatsApp chưa kết nối.
+
+Nhân viên tạo khách từ dashboard hoặc app POS cũng đi qua đúng luồng đó
+(`sendMemberCardWhatsApp`).
+
+- **Gửi không đồng bộ** cho thông báo giao dịch qua `src/lib/jobs/queue.ts`
+  (in-process, retry có giới hạn); lỗi gửi **không bao giờ** làm hỏng giao dịch
+  tích điểm. Đổi sang BullMQ/Upstash QStash chỉ cần thay driver trong file này.
+- **Consent tách riêng**: `CustomerCommunicationConsent.whatsappTransactional`
+  (giao dịch) vs `whatsappMarketing`.
+- **Idempotency**: `earn:<txnId>` / `redeem:<txnId>` / `voucher:<cvId>`
   (unique `[businessId, idempotencyKey]`) → không gửi trùng.
-- **Webhook** `POST /api/webhooks/whatsapp`: xác thực chữ ký `X-Hub-Signature-256`, cập nhật
-  trạng thái `sent / delivered / read / failed` theo `wamid`, map tenant qua `phone_number_id`.
-- **Template 3 ngôn ngữ** (vi/de/en) trong `src/lib/whatsapp/templates.ts`; mọi bảng WhatsApp
-  (`WhatsAppConnection`, `WhatsAppTemplate`, `WhatsAppMessageLog`, `CustomerCommunicationConsent`)
-  đều scope theo `businessId`. Cấu hình tại **Dashboard → Settings → WhatsApp**.
+- **Webhook** `POST /api/whatsapp/webhook/[businessId]?secret=…`: tenant lấy từ
+  đường dẫn, secret so sánh constant-time; xử lý `qrcode.updated`,
+  `connection.update`, `messages.upsert`, `messages.update` (delivered/read).
+- **Nội dung 3 ngôn ngữ** (vi/de/en) trong `src/lib/whatsapp/templates.ts`, mỗi
+  nhà hàng ghi đè được qua bảng `WhatsAppTemplate`. Mọi bảng WhatsApp đều scope
+  theo `businessId`.
 
 ---
 
-## ☁️ Deploy (Vercel)
+## ☁️ Deploy production (VPS + Docker)
 
-1. Tạo Postgres (Neon/Supabase/Railway) → lấy `DATABASE_URL`.
-2. Import repo vào Vercel, thêm environment variables (mục trên).
-3. Build command mặc định `npm run build` đã bao gồm `prisma generate`.
-4. Sau lần deploy đầu, chạy migrate + seed một lần:
-   ```bash
-   npx prisma migrate deploy
-   npm run db:seed   # tùy chọn (dữ liệu demo)
-   ```
+Toàn bộ hệ thống chạy bằng Docker trên một VPS: nginx + TLS Let's Encrypt,
+Next.js standalone, PostgreSQL, Redis và gateway WhatsApp Web Multi-Device.
+
+**Hướng dẫn đầy đủ: [`deploy/README.md`](deploy/README.md)**
+
+```bash
+# trên VPS
+git clone <repo> /opt/ptc-bonus && cd /opt/ptc-bonus
+bash deploy/bootstrap-vps.sh          # Docker, UFW, Fail2Ban, swap
+cp .env.production.example .env.production && nano .env.production
+bash deploy/init-ssl.sh               # chứng chỉ lần đầu
+bash deploy/deploy.sh                 # build + khởi động
+```
+
+Gateway WhatsApp **không mở ra Internet** — app gọi nó qua mạng nội bộ Docker,
+nên webhook không bao giờ rời khỏi máy chủ.
+
+> Kiến trúc vẫn deploy được lên Vercel, nhưng gateway WhatsApp Web Multi-Device
+> cần một tiến trình chạy liên tục nên không thể nằm trong serverless function.
 
 ---
 
@@ -207,9 +253,10 @@ chặn nhân viên tự cộng điểm · cảnh báo giao dịch lớn · audit
 - Nhân viên được tạo với mật khẩu tạm (chưa có luồng email mời qua `Invitation`).
 - Điểm hết hạn (`pointsExpiryDays`) đã có trong schema/cấu hình nhưng job hết hạn chưa chạy nền.
 - Upload logo dùng URL (chưa tích hợp provider lưu file).
-- **WhatsApp**: gửi thật cần credentials Meta thật (Phone Number ID + WABA ID + Access Token)
-  và template đã được duyệt. Hàng đợi hiện chạy **in-process**; trên serverless nên đổi sang
-  QStash/BullMQ để đảm bảo job chạy sau khi response trả về (swap point ở `src/lib/jobs/queue.ts`).
+- **WhatsApp**: cần một gateway WhatsApp Web Multi-Device chạy liên tục (Evolution API,
+  Docker trên VPS) — không chạy được trong serverless function. Chưa cấu hình gateway thì
+  hệ thống tự dùng provider `log` (không gửi thật). Hàng đợi hiện chạy **in-process**;
+  trên serverless nên đổi sang QStash/BullMQ (swap point ở `src/lib/jobs/queue.ts`).
 
 ---
 

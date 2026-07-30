@@ -1,0 +1,12 @@
+# Shell scripts, Dockerfiles and container configs MUST keep LF endings.
+# A CRLF entrypoint fails inside Linux containers with a confusing
+# "no such file or directory", so pin them regardless of core.autocrlf
+# on the Windows dev machine.
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+*.dockerfile    text eol=lf
+docker-compose*.yml text eol=lf
+*.conf          text eol=lf
+*.inc           text eol=lf
+.env.example    text eol=lf
+*.env.example   text eol=lf

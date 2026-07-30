@@ -300,15 +300,15 @@ async function main() {
     data: { businessId: businessA.id, userId: ownerA.id, action: "business.seed", entity: "Business", entityId: businessA.id, metadata: { note: "Demo seed" } },
   });
 
-  // ── WhatsApp Business (demo, not connected — no real Meta token) ──
+  // ── WhatsApp (demo, not paired — scan the login QR in Settings → WhatsApp) ──
   await db.whatsAppConnection.create({
     data: {
       businessId: businessA.id,
-      status: "DISCONNECTED", // connect with a real token in Settings → WhatsApp
-      phoneNumberId: "100000000000000",
-      wabaId: "200000000000000",
-      displayPhoneNumber: "+49 30 111111",
+      status: "DISCONNECTED",
+      provider: "evolution",
+      instanceId: `ptc-${businessA.id}`.toLowerCase(),
       defaultLanguage: "vi",
+      notifyOnSignup: true,
       notifyOnEarn: true,
       notifyOnRedeem: true,
       notifyOnVoucher: true,
@@ -319,9 +319,7 @@ async function main() {
       businessId: businessA.id,
       key: r.key,
       language: r.language,
-      metaTemplateName: r.metaTemplateName,
-      category: r.category,
-      bodyPreview: r.bodyPreview,
+      body: r.body,
     })),
   });
 
@@ -358,9 +356,9 @@ async function main() {
           language: "vi",
           templateKey: "points_earned",
           idempotencyKey: `seed:wa:${waIdx}`,
-          providerMessageId: status === "QUEUED" ? null : `wamid.SEED${waIdx}`,
+          providerMessageId: status === "QUEUED" ? null : `SEEDMSG${waIdx}`,
           attempts: status === "FAILED" ? 3 : 1,
-          error: status === "FAILED" ? "recipient_not_in_allowed_list" : null,
+          error: status === "FAILED" ? "not_connected" : null,
           sentAt: status === "QUEUED" ? null : new Date(now2 - waIdx * 3600 * 1000),
           deliveredAt: ["DELIVERED", "READ"].includes(status) ? new Date(now2 - waIdx * 3500 * 1000) : null,
           readAt: status === "READ" ? new Date(now2 - waIdx * 3400 * 1000) : null,

@@ -40,3 +40,5 @@ next-env.d.ts
 
 .vercel
 .env*
+# ...but the templates must stay in the repo (root + deploy/).
+!.env.example

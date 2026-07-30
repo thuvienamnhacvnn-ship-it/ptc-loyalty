@@ -33,7 +33,7 @@ export type CustomerQrResult =
 
 /** Fixed membership QR (PNG data URL) for a customer — staff view/print/share.
  *  Also returns the phone + store name/logo so the detail page can offer a
- *  manual "Gửi qua WhatsApp" (Web Share / wa.me) without the Cloud API. */
+ *  manual "Gửi qua WhatsApp" (Web Share / wa.me) without the paired session. */
 export async function customerQrDataUrl(customerId: string): Promise<CustomerQrResult> {
   const ctx = await requireBusinessContext();
   const c = await db.customerProfile.findFirst({
@@ -226,14 +226,9 @@ export async function createCustomer(
       storeName: biz?.name ?? "PTC Loyalty",
       toPhone: d.phone,
     });
-    // Honest status: only an APPROVED template ("sent") is guaranteed to reach
-    // any customer. A free-form/link send ("sent_pending") only arrives if the
-    // customer messaged us within 24h (or is an allow-listed test number).
-    whatsapp = sent.ok
-      ? sent.method === "template"
-        ? "sent"
-        : "sent_pending"
-      : sent.skipped ?? sent.error;
+    // Sent from the business's own WhatsApp number — it either went out or we
+    // report exactly why it didn't (no_phone | not_connected | toggle_off | error).
+    whatsapp = sent.ok ? "sent" : sent.skipped ?? sent.error;
   }
 
   return { ok: true, customerId: created.id, whatsapp };

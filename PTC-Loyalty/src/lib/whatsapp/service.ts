@@ -1,22 +1,24 @@
 import { db } from "@/lib/db";
-import { decryptSecret } from "@/lib/crypto";
 import { enqueue, registerJob } from "@/lib/jobs/queue";
+import { resolveSession } from "./connection";
 import {
-  sendTemplateMessage,
-  sendTextMessage,
-  type WhatsAppCredentials,
-} from "./client";
-import {
-  DEFAULT_META_TEMPLATE_NAME,
-  META_LOCALE,
   normalizeLanguage,
   progressLine,
+  render,
   renderBody,
   templateBody,
   type TemplateKey,
   type WaLanguage,
 } from "./templates";
 import type { Prisma } from "@prisma/client";
+
+/**
+ * Transactional WhatsApp notifications.
+ *
+ * Every message leaves from the restaurant's OWN WhatsApp number through the
+ * provider it paired by QR (see ./connection.ts). This module therefore knows
+ * nothing about any specific provider or messaging API.
+ */
 
 const SEND_JOB = "wa:send";
 
@@ -34,7 +36,7 @@ interface Eligibility {
 
 /**
  * Resolve whether a transactional WhatsApp can be sent to a customer:
- * business connected + event toggle on + customer transactional consent + phone.
+ * number paired + event toggle on + customer transactional consent + phone.
  * Fully tenant-scoped.
  */
 async function resolveTransactionalEligibility(
@@ -69,6 +71,25 @@ async function resolveTransactionalEligibility(
     phone,
     language: normalizeLanguage(customer.locale),
   };
+}
+
+/**
+ * Render a message body: the business's own override when it has one, else the
+ * built-in copy for that language.
+ */
+export async function resolveBody(
+  businessId: string,
+  key: TemplateKey,
+  language: WaLanguage,
+  params: string[],
+): Promise<string> {
+  const override = await db.whatsAppTemplate.findUnique({
+    where: { businessId_key_language: { businessId, key, language } },
+  });
+  if (override?.isActive && override.body.trim()) {
+    return render(override.body, params);
+  }
+  return renderBody(key, language, params);
 }
 
 /** Compute the "points needed" progress line for a customer after earning. */
@@ -110,10 +131,8 @@ interface QueueArgs {
   toPhone: string;
   idempotencyKey: string;
   transactionId?: string | null;
-  // What to actually send:
-  bodyParams?: string[]; // for template messages
-  textBody?: string; // for TEST / text messages
-  previewBody: string; // human-readable snapshot
+  /** Fully rendered chat text — the provider sends it verbatim. */
+  textBody: string;
 }
 
 /**
@@ -133,9 +152,9 @@ async function queueMessage(args: QueueArgs): Promise<void> {
     if (existing) return; // already queued/sent — do not duplicate
 
     const snapshot: Prisma.InputJsonValue = {
-      bodyParams: args.bodyParams ?? [],
-      textBody: args.textBody ?? null,
-      preview: args.previewBody,
+      direction: "outbound",
+      textBody: args.textBody,
+      preview: args.textBody,
     };
 
     const log = await db.whatsAppMessageLog.create({
@@ -201,8 +220,7 @@ export async function notifyPointsEarned(input: {
     toPhone: elig.phone,
     idempotencyKey: `earn:${input.transactionId}`,
     transactionId: input.transactionId,
-    bodyParams: params,
-    previewBody: renderBody("points_earned", elig.language, params),
+    textBody: await resolveBody(input.businessId, "points_earned", elig.language, params),
   });
 }
 
@@ -236,8 +254,7 @@ export async function notifyRewardRedeemed(input: {
     toPhone: elig.phone,
     idempotencyKey: `redeem:${input.transactionId}`,
     transactionId: input.transactionId,
-    bodyParams: params,
-    previewBody: renderBody("reward_redeemed", elig.language, params),
+    textBody: await resolveBody(input.businessId, "reward_redeemed", elig.language, params),
   });
 }
 
@@ -264,12 +281,11 @@ export async function notifyVoucherIssued(input: {
     language: elig.language,
     toPhone: elig.phone,
     idempotencyKey: `voucher:${input.customerVoucherId}`,
-    bodyParams: params,
-    previewBody: renderBody("voucher", elig.language, params),
+    textBody: await resolveBody(input.businessId, "voucher", elig.language, params),
   });
 }
 
-/** Owner-triggered test message (plain text, requires an open 24h window). */
+/** Owner-triggered test message, sent from the restaurant's own number. */
 export async function sendTestMessage(input: {
   businessId: string;
   toPhone: string;
@@ -278,9 +294,9 @@ export async function sendTestMessage(input: {
   nonce: string;
 }): Promise<void> {
   const text = {
-    vi: `✅ ${input.storeName}: Kết nối WhatsApp thành công! Đây là tin nhắn thử từ PTC Loyalty.`,
-    de: `✅ ${input.storeName}: WhatsApp erfolgreich verbunden! Dies ist eine Testnachricht von PTC Loyalty.`,
-    en: `✅ ${input.storeName}: WhatsApp connected! This is a test message from PTC Loyalty.`,
+    vi: `✅ ${input.storeName}: Kết nối WhatsApp thành công! Đây là tin nhắn thử từ PTC-BONUS.`,
+    de: `✅ ${input.storeName}: WhatsApp erfolgreich verbunden! Dies ist eine Testnachricht von PTC-BONUS.`,
+    en: `✅ ${input.storeName}: WhatsApp connected! This is a test message from PTC-BONUS.`,
   }[input.language];
 
   await queueMessage({
@@ -292,7 +308,6 @@ export async function sendTestMessage(input: {
     toPhone: input.toPhone,
     idempotencyKey: `test:${input.nonce}`,
     textBody: text,
-    previewBody: text,
   });
 }
 
@@ -303,18 +318,6 @@ interface SendJobPayload {
   businessId: string;
 }
 
-async function loadCredentials(businessId: string): Promise<WhatsAppCredentials | null> {
-  const conn = await db.whatsAppConnection.findUnique({ where: { businessId } });
-  if (!conn || !conn.accessTokenCipher || !conn.phoneNumberId) return null;
-  let accessToken: string;
-  try {
-    accessToken = decryptSecret(conn.accessTokenCipher);
-  } catch {
-    return null;
-  }
-  return { accessToken, phoneNumberId: conn.phoneNumberId, apiVersion: conn.graphApiVersion };
-}
-
 registerJob<SendJobPayload>(
   SEND_JOB,
   async ({ logId, businessId }, ctx) => {
@@ -323,53 +326,35 @@ registerJob<SendJobPayload>(
     if (log.status === "SENT" || log.status === "DELIVERED" || log.status === "READ") {
       return; // already delivered — idempotent no-op
     }
-    if (log.providerMessageId) return; // already accepted by Meta
+    if (log.providerMessageId) return; // already accepted by the provider
 
-    const creds = await loadCredentials(businessId);
-    if (!creds) {
+    const resolved = await resolveSession(businessId);
+    if (!resolved) {
       await db.whatsAppMessageLog.update({
         where: { id: logId },
-        data: { status: "FAILED", error: "no_credentials", attempts: ctx.attempt, failedAt: new Date() },
-      });
-      return; // not retriable
-    }
-
-    const snapshot = (log.payloadSnapshot ?? {}) as {
-      bodyParams?: string[];
-      textBody?: string | null;
-    };
-
-    let result;
-    if (log.kind === "TEST" || !log.templateKey) {
-      result = await sendTextMessage(creds, log.toPhone, snapshot.textBody ?? "");
-    } else {
-      const template = await db.whatsAppTemplate.findUnique({
-        where: {
-          businessId_key_language: {
-            businessId,
-            key: log.templateKey,
-            language: log.language,
-          },
+        data: {
+          status: "FAILED",
+          error: "not_connected",
+          attempts: ctx.attempt,
+          failedAt: new Date(),
         },
       });
-      const templateName =
-        template?.metaTemplateName ??
-        DEFAULT_META_TEMPLATE_NAME[log.templateKey as TemplateKey];
-      result = await sendTemplateMessage(
-        creds,
-        log.toPhone,
-        templateName,
-        META_LOCALE[log.language as WaLanguage] ?? "en",
-        snapshot.bodyParams ?? [],
-      );
+      return; // the business hasn't paired its number — not retriable
     }
+
+    const snapshot = (log.payloadSnapshot ?? {}) as { textBody?: string | null };
+    const result = await resolved.provider.sendText(
+      resolved.session,
+      log.toPhone,
+      snapshot.textBody ?? "",
+    );
 
     if (result.ok) {
       await db.whatsAppMessageLog.update({
         where: { id: logId },
         data: {
           status: "SENT",
-          providerMessageId: result.messageId,
+          providerMessageId: result.messageId || null,
           sentAt: new Date(),
           attempts: ctx.attempt,
           error: null,

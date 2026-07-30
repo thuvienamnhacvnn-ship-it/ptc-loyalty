@@ -6,7 +6,13 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { requireBusinessContext } from "@/lib/tenant";
 import { hasAtLeast } from "@/lib/rbac";
-import { encryptSecret, isEncryptionConfigured } from "@/lib/crypto";
+import {
+  disconnectConnection,
+  getOrCreateConnection,
+  refreshConnection,
+  startConnection,
+  type ConnectionView,
+} from "@/lib/whatsapp/connection";
 import { sendTestMessage } from "@/lib/whatsapp/service";
 import { defaultTemplateRows, normalizeLanguage } from "@/lib/whatsapp/templates";
 
@@ -15,134 +21,109 @@ export interface FormResult {
   error?: string;
 }
 
-/** Ensure the 3-language default templates exist for this business. Idempotent. */
+export type ConnectionResult =
+  | { ok: true; connection: ConnectionView }
+  | { ok: false; error: string };
+
+/** Ensure the default message copy exists for this business. Idempotent. */
 async function ensureTemplates(businessId: string) {
-  const rows = defaultTemplateRows();
-  for (const r of rows) {
+  for (const r of defaultTemplateRows()) {
     await db.whatsAppTemplate.upsert({
       where: {
-        businessId_key_language: {
-          businessId,
-          key: r.key,
-          language: r.language,
-        },
+        businessId_key_language: { businessId, key: r.key, language: r.language },
       },
-      update: { bodyPreview: r.bodyPreview, category: r.category },
-      create: {
-        businessId,
-        key: r.key,
-        language: r.language,
-        metaTemplateName: r.metaTemplateName,
-        category: r.category,
-        bodyPreview: r.bodyPreview,
-      },
+      update: {},
+      create: { businessId, key: r.key, language: r.language, body: r.body },
     });
   }
 }
 
-const connectionSchema = z.object({
-  phoneNumberId: z.string().trim().min(1, "Nhập Phone Number ID"),
-  wabaId: z.string().trim().min(1, "Nhập WhatsApp Business Account ID"),
-  // Optional: only rotate the token when a new value is supplied.
-  accessToken: z.string().trim().optional(),
-  graphApiVersion: z.string().trim().optional(),
-  defaultLanguage: z.enum(["vi", "de", "en"]),
-});
-
-export async function saveConnection(
-  input: z.infer<typeof connectionSchema>,
-): Promise<FormResult> {
+/**
+ * Step 1 of pairing: ask the provider for a WhatsApp Web login QR. The owner
+ * scans it with the phone that holds the restaurant's number — after that every
+ * message to customers comes from that number.
+ */
+export async function connectWhatsApp(): Promise<ConnectionResult> {
   const ctx = await requireBusinessContext();
   if (!hasAtLeast(ctx.role, "BUSINESS_OWNER")) {
-    return { ok: false, error: "Chỉ chủ doanh nghiệp mới được cấu hình WhatsApp." };
-  }
-  const parsed = connectionSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
-  const d = parsed.data;
-
-  if (d.accessToken && !isEncryptionConfigured()) {
-    return {
-      ok: false,
-      error: "Thiếu ENCRYPTION_KEY trên server — không thể mã hóa access token.",
-    };
+    return { ok: false, error: "Chỉ chủ doanh nghiệp mới được kết nối WhatsApp." };
   }
 
-  const existing = await db.whatsAppConnection.findUnique({
-    where: { businessId: ctx.businessId },
-  });
-
-  // Encrypt the token if a new one was provided; otherwise keep the old cipher.
-  const accessTokenCipher = d.accessToken
-    ? encryptSecret(d.accessToken)
-    : existing?.accessTokenCipher ?? null;
-
-  const connected = !!accessTokenCipher && !!d.phoneNumberId;
-
-  await db.whatsAppConnection.upsert({
-    where: { businessId: ctx.businessId },
-    update: {
-      phoneNumberId: d.phoneNumberId,
-      wabaId: d.wabaId,
-      accessTokenCipher,
-      graphApiVersion: d.graphApiVersion || "v21.0",
-      defaultLanguage: d.defaultLanguage,
-      status: connected ? "CONNECTED" : "DISCONNECTED",
-      connectedAt: connected ? existing?.connectedAt ?? new Date() : null,
-      lastError: null,
-    },
-    create: {
-      businessId: ctx.businessId,
-      phoneNumberId: d.phoneNumberId,
-      wabaId: d.wabaId,
-      accessTokenCipher,
-      graphApiVersion: d.graphApiVersion || "v21.0",
-      defaultLanguage: d.defaultLanguage,
-      status: connected ? "CONNECTED" : "DISCONNECTED",
-      connectedAt: connected ? new Date() : null,
-    },
-  });
-
+  await getOrCreateConnection(ctx.businessId);
   await ensureTemplates(ctx.businessId);
+  const connection = await startConnection(ctx.businessId);
 
   await db.auditLog.create({
     data: {
       businessId: ctx.businessId,
       userId: ctx.user.id,
-      action: "whatsapp.connection.save",
+      action: "whatsapp.connection.start",
       entity: "WhatsAppConnection",
       entityId: ctx.businessId,
-      metadata: { connected, tokenRotated: !!d.accessToken },
+      metadata: { provider: connection.providerId, status: connection.status },
     },
   });
 
   revalidatePath("/dashboard/settings/whatsapp");
+  return { ok: true, connection };
+}
+
+/** Polled by the settings page while the QR is on screen. */
+export async function pollConnection(): Promise<ConnectionResult> {
+  const ctx = await requireBusinessContext();
+  if (!hasAtLeast(ctx.role, "BUSINESS_MANAGER")) {
+    return { ok: false, error: "Không có quyền." };
+  }
+  return { ok: true, connection: await refreshConnection(ctx.businessId) };
+}
+
+export async function disconnect(): Promise<FormResult> {
+  const ctx = await requireBusinessContext();
+  if (!hasAtLeast(ctx.role, "BUSINESS_OWNER")) {
+    return { ok: false, error: "Không có quyền." };
+  }
+  await disconnectConnection(ctx.businessId);
+  await db.auditLog.create({
+    data: {
+      businessId: ctx.businessId,
+      userId: ctx.user.id,
+      action: "whatsapp.connection.disconnect",
+      entity: "WhatsAppConnection",
+      entityId: ctx.businessId,
+    },
+  });
+  revalidatePath("/dashboard/settings/whatsapp");
   return { ok: true };
 }
 
-const togglesSchema = z.object({
+const settingsSchema = z.object({
+  defaultLanguage: z.enum(["vi", "de", "en"]),
+  notifyOnSignup: z.coerce.boolean().optional(),
   notifyOnEarn: z.coerce.boolean().optional(),
   notifyOnRedeem: z.coerce.boolean().optional(),
   notifyOnVoucher: z.coerce.boolean().optional(),
 });
 
-export async function saveToggles(
-  input: z.infer<typeof togglesSchema>,
+export async function saveSettings(
+  input: z.infer<typeof settingsSchema>,
 ): Promise<FormResult> {
   const ctx = await requireBusinessContext();
   if (!hasAtLeast(ctx.role, "BUSINESS_MANAGER")) {
     return { ok: false, error: "Không có quyền." };
   }
-  const connection = await db.whatsAppConnection.findUnique({
-    where: { businessId: ctx.businessId },
-  });
-  if (!connection) return { ok: false, error: "Chưa cấu hình WhatsApp." };
+  const parsed = settingsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
+  const d = parsed.data;
 
+  await getOrCreateConnection(ctx.businessId);
   await db.whatsAppConnection.update({
     where: { businessId: ctx.businessId },
     data: {
-      notifyOnEarn: !!input.notifyOnEarn,
-      notifyOnRedeem: !!input.notifyOnRedeem,
-      notifyOnVoucher: !!input.notifyOnVoucher,
+      defaultLanguage: d.defaultLanguage,
+      notifyOnSignup: !!d.notifyOnSignup,
+      notifyOnEarn: !!d.notifyOnEarn,
+      notifyOnRedeem: !!d.notifyOnRedeem,
+      notifyOnVoucher: !!d.notifyOnVoucher,
     },
   });
   revalidatePath("/dashboard/settings/whatsapp");
@@ -176,32 +157,10 @@ export async function sendTest(
     businessId: ctx.businessId,
     toPhone: parsed.data.phone,
     language: normalizeLanguage(parsed.data.language ?? connection.defaultLanguage),
-    storeName: business?.name ?? "PTC Loyalty",
+    storeName: business?.name ?? "PTC-BONUS",
     nonce: crypto.randomUUID(),
   });
 
-  revalidatePath("/dashboard/settings/whatsapp");
-  return { ok: true };
-}
-
-export async function disconnect(): Promise<FormResult> {
-  const ctx = await requireBusinessContext();
-  if (!hasAtLeast(ctx.role, "BUSINESS_OWNER")) {
-    return { ok: false, error: "Không có quyền." };
-  }
-  await db.whatsAppConnection.updateMany({
-    where: { businessId: ctx.businessId },
-    data: { status: "DISCONNECTED", accessTokenCipher: null, connectedAt: null },
-  });
-  await db.auditLog.create({
-    data: {
-      businessId: ctx.businessId,
-      userId: ctx.user.id,
-      action: "whatsapp.connection.disconnect",
-      entity: "WhatsAppConnection",
-      entityId: ctx.businessId,
-    },
-  });
   revalidatePath("/dashboard/settings/whatsapp");
   return { ok: true };
 }

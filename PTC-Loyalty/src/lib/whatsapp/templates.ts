@@ -1,40 +1,49 @@
-// WhatsApp message templates in Vietnamese, German and English.
+// WhatsApp message copy in Vietnamese, German and English.
 //
-// Meta requires business-initiated messages to use PRE-APPROVED templates
-// (submitted in WhatsApp Manager). We keep the canonical body text here so we
-// can render local previews / the "test message" and know the parameter order
-// that must match the approved template. `metaTemplateName` is the name Meta
-// knows the template by.
+// These are ordinary chat messages sent from the restaurant's OWN WhatsApp
+// number over a WhatsApp Web Multi-Device session — there is no template
+// approval, no review queue and no 24-hour window to work around. The bodies
+// live here so every business gets sensible defaults; a business may override
+// any of them (WhatsAppTemplate rows).
+//
+// {{n}} placeholders are positional and documented per key below.
 
-export type TemplateKey = "points_earned" | "reward_redeemed" | "voucher";
+export type TemplateKey =
+  | "welcome" // sent right after signup
+  | "member_card" // caption of the membership-QR image
+  | "points_earned"
+  | "reward_redeemed"
+  | "voucher";
+
 export type WaLanguage = "vi" | "de" | "en";
 
 export const WA_LANGUAGES: WaLanguage[] = ["vi", "de", "en"];
 
-// Meta uses BCP-47-ish locale codes for template languages.
-export const META_LOCALE: Record<WaLanguage, string> = {
-  vi: "vi",
-  de: "de",
-  en: "en",
-};
+export const TEMPLATE_KEYS: TemplateKey[] = [
+  "welcome",
+  "member_card",
+  "points_earned",
+  "reward_redeemed",
+  "voucher",
+];
 
-export const DEFAULT_META_TEMPLATE_NAME: Record<TemplateKey, string> = {
-  points_earned: "ptc_points_earned",
-  reward_redeemed: "ptc_reward_redeemed",
-  voucher: "ptc_voucher_new",
-};
-
-export const TEMPLATE_CATEGORY: Record<TemplateKey, string> = {
-  points_earned: "UTILITY",
-  reward_redeemed: "UTILITY",
-  voucher: "MARKETING",
-};
-
-// Body text with {{n}} placeholders. Parameter order is the contract with Meta.
-// points_earned: 1=store, 2=points earned, 3=total balance, 4=progress line, 5=member url
-// reward_redeemed: 1=store, 2=points spent, 3=balance, 4=member url
-// voucher: 1=store, 2=voucher title, 3=member url
+// Parameter order per key:
+//   welcome:         1=store, 2=customer name, 3=member code, 4=member url
+//   member_card:     1=store, 2=member code
+//   points_earned:   1=store, 2=points earned, 3=balance, 4=progress line, 5=member url
+//   reward_redeemed: 1=store, 2=points spent, 3=balance, 4=member url
+//   voucher:         1=store, 2=voucher title, 3=member url
 const BODIES: Record<TemplateKey, Record<WaLanguage, string>> = {
+  welcome: {
+    vi: "🎉 Chào mừng {{2}} đến với *{{1}}*!\n\nBạn đã trở thành thành viên tích điểm.\nMã thành viên: *{{3}}*\n\nMỗi lần ghé {{1}}, bạn sẽ được cộng điểm và nhận ưu đãi riêng.\nXem tài khoản của bạn: {{4}}",
+    de: "🎉 Willkommen {{2}} bei *{{1}}*!\n\nSie sind jetzt Mitglied unseres Bonusprogramms.\nMitgliedsnummer: *{{3}}*\n\nBei jedem Besuch sammeln Sie Punkte und erhalten persönliche Vorteile.\nKonto ansehen: {{4}}",
+    en: "🎉 Welcome {{2}} to *{{1}}*!\n\nYou're now a loyalty member.\nMember code: *{{3}}*\n\nEvery visit earns you points and personal rewards.\nView your account: {{4}}",
+  },
+  member_card: {
+    vi: "📲 Đây là mã QR thành viên của bạn tại *{{1}}* (mã: {{2}}).\n\nCách dùng:\n1️⃣ Lưu ảnh này vào điện thoại.\n2️⃣ Mỗi lần đến, đưa mã QR cho nhân viên quét.\n3️⃣ Điểm được cộng ngay lập tức.\n\nHẹn gặp lại bạn! ❤️",
+    de: "📲 Das ist Ihr Mitglieds-QR-Code bei *{{1}}* (Nr. {{2}}).\n\nSo funktioniert's:\n1️⃣ Speichern Sie dieses Bild auf Ihrem Handy.\n2️⃣ Zeigen Sie den QR-Code bei jedem Besuch vor.\n3️⃣ Ihre Punkte werden sofort gutgeschrieben.\n\nBis bald! ❤️",
+    en: "📲 This is your membership QR code at *{{1}}* (code: {{2}}).\n\nHow to use it:\n1️⃣ Save this image to your phone.\n2️⃣ Show the QR code to our staff on every visit.\n3️⃣ Your points are added instantly.\n\nSee you soon! ❤️",
+  },
   points_earned: {
     vi: "🎉 {{1}}: Bạn vừa nhận {{2}} điểm!\nTổng điểm hiện tại: {{3}}.\n{{4}}\nXem tài khoản của bạn: {{5}}",
     de: "🎉 {{1}}: Sie haben {{2}} Punkte erhalten!\nAktueller Punktestand: {{3}}.\n{{4}}\nKonto ansehen: {{5}}",
@@ -62,9 +71,12 @@ export function renderBody(
   lang: WaLanguage,
   params: string[],
 ): string {
-  return templateBody(key, lang).replace(/\{\{(\d+)\}\}/g, (_m, i) => {
-    return params[Number(i) - 1] ?? "";
-  });
+  return render(templateBody(key, lang), params);
+}
+
+/** Substitute placeholders in an arbitrary body (e.g. a business override). */
+export function render(body: string, params: string[]): string {
+  return body.replace(/\{\{(\d+)\}\}/g, (_m, i) => params[Number(i) - 1] ?? "");
 }
 
 /** Localised "points remaining" line used as the progress parameter. */
@@ -101,24 +113,12 @@ export function normalizeLanguage(locale: string | null | undefined): WaLanguage
   return "vi";
 }
 
-/** Default template rows to provision for a business (key × language). */
+/** Default message rows to provision for a business (key × language). */
 export function defaultTemplateRows() {
-  const rows: {
-    key: TemplateKey;
-    language: WaLanguage;
-    metaTemplateName: string;
-    category: string;
-    bodyPreview: string;
-  }[] = [];
-  for (const key of Object.keys(BODIES) as TemplateKey[]) {
+  const rows: { key: TemplateKey; language: WaLanguage; body: string }[] = [];
+  for (const key of TEMPLATE_KEYS) {
     for (const language of WA_LANGUAGES) {
-      rows.push({
-        key,
-        language,
-        metaTemplateName: DEFAULT_META_TEMPLATE_NAME[key],
-        category: TEMPLATE_CATEGORY[key],
-        bodyPreview: templateBody(key, language),
-      });
+      rows.push({ key, language, body: templateBody(key, language) });
     }
   }
   return rows;

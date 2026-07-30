@@ -1,71 +1,62 @@
 import { db } from "@/lib/db";
-import { normalizePhone } from "@/lib/whatsapp/client";
+import { toWhatsAppNumber } from "@/lib/phone";
 
 export interface InboundMessage {
-  phoneNumberId?: string; // Meta phone_number_id (identifies the business inbox)
-  fromPhone: string; // customer's number (E.164 digits)
+  /** Tenant is known from the per-business webhook URL. */
+  businessId: string;
+  /** Customer's number as reported by the provider. */
+  fromPhone: string;
   text: string;
-  wamid: string; // Meta message id — used for idempotency
-  timestamp?: number; // unix seconds
+  /** Provider message id — used for idempotency. */
+  messageId: string;
+  /** Unix seconds. */
+  timestamp?: number;
 }
 
 /**
- * Persist an inbound WhatsApp message, tenant-scoped. Resolution order:
- *  1) Meta phone_number_id → WhatsAppConnection → businessId (multi-tenant).
- *  2) Fallback (single env-token setup, no connection row): match the sender's
- *     phone to a CustomerProfile and use that customer's business.
- * Dedupes on (businessId, wamid). Never throws to the caller.
+ * Persist an inbound WhatsApp message, tenant-scoped. The sender is matched to a
+ * CustomerProfile by the last 8 digits (tolerant of +/country-code formatting).
+ * Dedupes on (businessId, messageId). Never throws to the caller.
  */
 export async function persistInboundMessage(msg: InboundMessage): Promise<void> {
-  if (!msg.wamid || !msg.fromPhone) return;
+  if (!msg.businessId || !msg.messageId || !msg.fromPhone) return;
 
-  let businessId: string | null = null;
-  let toPhone = msg.phoneNumberId ?? "";
+  const connection = await db.whatsAppConnection.findUnique({
+    where: { businessId: msg.businessId },
+    select: { displayPhoneNumber: true },
+  });
 
-  if (msg.phoneNumberId) {
-    const conn = await db.whatsAppConnection.findFirst({
-      where: { phoneNumberId: msg.phoneNumberId },
-      select: { businessId: true, displayPhoneNumber: true },
-    });
-    if (conn) {
-      businessId = conn.businessId;
-      toPhone = conn.displayPhoneNumber ?? toPhone;
-    }
-  }
-
-  // Match the sender to a customer (last 8 digits → tolerant of +/country code).
-  const digits = normalizePhone(msg.fromPhone);
+  const digits = toWhatsAppNumber(msg.fromPhone) ?? msg.fromPhone.replace(/\D/g, "");
   const tail = digits.slice(-8);
   const customer = tail
     ? await db.customerProfile.findFirst({
-        where: {
-          ...(businessId ? { businessId } : {}),
-          phone: { contains: tail },
-        },
-        select: { id: true, businessId: true },
+        where: { businessId: msg.businessId, phone: { contains: tail } },
+        select: { id: true },
         orderBy: { lastVisitAt: "desc" },
       })
     : null;
-
-  if (!businessId && customer) businessId = customer.businessId;
-  if (!businessId) return; // cannot attribute to a tenant — drop safely
 
   const when = msg.timestamp ? new Date(msg.timestamp * 1000) : new Date();
 
   try {
     await db.whatsAppMessageLog.upsert({
-      where: { businessId_idempotencyKey: { businessId, idempotencyKey: msg.wamid } },
+      where: {
+        businessId_idempotencyKey: {
+          businessId: msg.businessId,
+          idempotencyKey: msg.messageId,
+        },
+      },
       update: {}, // already stored — idempotent no-op
       create: {
-        businessId,
+        businessId: msg.businessId,
         customerId: customer?.id ?? null,
         kind: "INBOUND",
         direction: "INBOUND",
         status: "DELIVERED",
-        toPhone,
-        fromPhone: msg.fromPhone,
-        idempotencyKey: msg.wamid,
-        providerMessageId: msg.wamid,
+        toPhone: connection?.displayPhoneNumber ?? "",
+        fromPhone: digits,
+        idempotencyKey: msg.messageId,
+        providerMessageId: msg.messageId,
         payloadSnapshot: { direction: "inbound", textBody: msg.text, preview: msg.text },
         deliveredAt: when,
       },

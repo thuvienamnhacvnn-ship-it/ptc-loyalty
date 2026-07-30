@@ -34,13 +34,13 @@ export default async function SettingsPage() {
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
-                <span className="font-semibold">WhatsApp Business</span>
+                <span className="font-semibold">WhatsApp</span>
                 <Badge variant={waStatus === "CONNECTED" ? "success" : "secondary"}>
                   {waStatus === "CONNECTED" ? "Đã kết nối" : "Chưa kết nối"}
                 </Badge>
               </div>
               <p className="text-sm text-muted-foreground">
-                Tự động gửi thông báo giao dịch cho khách qua WhatsApp Cloud API.
+                Gửi tin nhắn cho khách bằng chính số WhatsApp của nhà hàng.
               </p>
             </div>
             <ChevronRight className="h-5 w-5 text-muted-foreground" />

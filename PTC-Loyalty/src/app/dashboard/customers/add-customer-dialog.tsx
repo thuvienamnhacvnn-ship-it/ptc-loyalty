@@ -46,13 +46,13 @@ export function AddCustomerDialog() {
       title: "Đã thêm khách hàng",
       description:
         result.whatsapp === "sent"
-          ? "Đã gửi thẻ QR tới WhatsApp. Nếu khách không nhận được, dùng nút “Gửi qua WhatsApp” trong trang khách hàng."
-          : result.whatsapp === "sent_pending"
-            ? "Đã gửi ảnh QR tới WhatsApp — khách chỉ nhận được nếu đã nhắn cho bạn trong 24h qua. Để gửi chắc chắn cho mọi khách, cần template được Meta duyệt."
-            : result.whatsapp === "no_phone"
-              ? undefined
-              : result.whatsapp === "not_configured"
-                ? "WhatsApp chưa cấu hình — chưa gửi thẻ."
+          ? "Đã gửi lời chào và thẻ QR từ số WhatsApp của nhà hàng."
+          : result.whatsapp === "no_phone"
+            ? undefined
+            : result.whatsapp === "not_connected"
+              ? "Chưa kết nối WhatsApp — vào Cài đặt → WhatsApp và quét mã QR đăng nhập để gửi thẻ tự động."
+              : result.whatsapp === "toggle_off"
+                ? "Đã tắt gửi tin nhắn chào mừng trong Cài đặt → WhatsApp."
                 : result.whatsapp
                   ? `WhatsApp chưa gửi được: ${result.whatsapp}`
                   : undefined,

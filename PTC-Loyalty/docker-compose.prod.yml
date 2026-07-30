@@ -1,0 +1,195 @@
+name: ptc-bonus
+
+# PTC-BONUS production stack — everything runs in Docker, nothing installed on
+# the host. Usage (see deploy/README.md):
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+#
+# Only nginx is published to the internet (80/443). The app, the WhatsApp
+# gateway, Postgres and Redis talk to each other on the internal network and
+# have no host ports at all.
+
+services:
+  # ── Reverse proxy + TLS ────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+      - nginx_cache:/var/cache/nginx
+    # Reload every 6h so a renewed certificate is picked up without downtime.
+    command: >
+      /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
+    depends_on:
+      - app
+    networks: [edge, internal]
+    mem_limit: 192m
+
+  certbot:
+    image: certbot/certbot:latest
+    restart: always
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    # Try to renew twice a day; a no-op when the cert is still fresh.
+    entrypoint: >
+      /bin/sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
+    networks: [edge]
+    mem_limit: 128m
+
+  # ── Application ────────────────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+    image: ptc-bonus-app:latest
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://ptc:${POSTGRES_PASSWORD}@postgres:5432/ptc_bonus?connection_limit=10&pool_timeout=20
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      NEXTAUTH_URL: ${NEXT_PUBLIC_APP_URL}
+      AUTH_TRUST_HOST: "true"
+      AUTH_SECRET: ${AUTH_SECRET}
+      QR_SIGNING_SECRET: ${QR_SIGNING_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      POS_JWT_SECRET: ${POS_JWT_SECRET}
+      CRON_SECRET: ${CRON_SECRET}
+      # WhatsApp: the gateway is internal-only, so both directions stay on the
+      # Docker network and never touch the public internet.
+      WHATSAPP_PROVIDER: evolution
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_API_VERSION: v2
+      WHATSAPP_WEBHOOK_BASE_URL: http://app:3000
+    networks: [internal]
+    mem_limit: 1536m
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ── WhatsApp Web Multi-Device gateway ──────────────────────────────────────
+  # One long-lived session per restaurant, so every message leaves from that
+  # restaurant's OWN number. No Meta Business API anywhere.
+  evolution:
+    image: ${EVOLUTION_IMAGE:-atendai/evolution-api:v2.2.3}
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      SERVER_URL: http://evolution:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+
+      # Session storage — losing this means every restaurant must re-scan a QR.
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://ptc:${POSTGRES_PASSWORD}@postgres:5432/evolution
+      DATABASE_CONNECTION_CLIENT_NAME: ptc_bonus
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      # The app keeps its own message log, so don't mirror chat history here —
+      # that is what makes these gateways balloon in RAM and disk.
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_LABELS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_REDIS_PREFIX_KEY: evolution
+      CACHE_REDIS_SAVE_INSTANCES: "false"
+      CACHE_LOCAL_ENABLED: "false"
+
+      # Webhooks are registered per instance by the app (each business gets its
+      # own URL + secret), so no global webhook.
+      WEBHOOK_GLOBAL_ENABLED: "false"
+
+      # How the linked device appears in the owner's "Linked devices" list.
+      CONFIG_SESSION_PHONE_CLIENT: PTC-BONUS
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      CONFIG_SESSION_PHONE_VERSION: ${WA_WEB_VERSION:-2.3000.1023204200}
+
+      # Never auto-delete an instance: a dropped session must be recoverable by
+      # re-scanning, not silently wiped.
+      DEL_INSTANCE: "false"
+      QRCODE_LIMIT: "30"
+      LOG_LEVEL: ERROR
+      LOG_COLOR: "false"
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks: [internal]
+    mem_limit: 6g
+    logging: *logging
+
+  # ── Data ───────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ptc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ptc_bonus
+      # Tuned for 12 GB RAM / 6 vCPU with the gateway as the other big consumer.
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=128MB
+      - -c
+      - max_connections=100
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-evolution-db.sh:/docker-entrypoint-initdb.d/10-evolution.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ptc -d ptc_bonus"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [internal]
+    mem_limit: 2g
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks: [internal]
+    mem_limit: 384m
+    logging: *logging
+
+networks:
+  # Only nginx/certbot sit here; it is the only place bound to host ports.
+  edge:
+  internal:
+
+volumes:
+  postgres_data:
+  redis_data:
+  evolution_instances:
+  certbot_conf:
+  certbot_www:
+  nginx_cache:

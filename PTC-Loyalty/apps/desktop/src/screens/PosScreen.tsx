@@ -368,10 +368,12 @@ export function PosScreen() {
     // to use the manual "Gửi QR qua WhatsApp" button below.
     setQrHint(
       res.whatsapp === "sent"
-        ? "Đã gửi thẻ QR qua WhatsApp."
+        ? "Đã gửi thẻ QR từ số WhatsApp của nhà hàng."
         : res.whatsapp === "no_phone" || !res.whatsapp
           ? null
-          : "Chưa gửi tự động được — dùng nút “Gửi QR qua WhatsApp” bên dưới.",
+          : res.whatsapp === "not_connected"
+            ? "Chưa kết nối WhatsApp — dùng nút “Gửi QR qua WhatsApp” bên dưới."
+            : "Chưa gửi tự động được — dùng nút “Gửi QR qua WhatsApp” bên dưới.",
     );
     setShowCreate(false);
     setCFirst("");
@@ -398,7 +400,7 @@ export function PosScreen() {
     }
   }
 
-  // Manual "send QR image over WhatsApp" (no Cloud API): copy the QR to the
+  // Manual "send QR image over WhatsApp" (click-to-chat): copy the QR to the
   // clipboard + open WhatsApp to the customer's chat; staff paste + Send.
   async function shareQrWhatsApp() {
     if (!qr) return;

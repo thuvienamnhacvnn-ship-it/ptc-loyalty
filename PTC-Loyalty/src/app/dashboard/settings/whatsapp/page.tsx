@@ -5,7 +5,8 @@ import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireBusinessContext } from "@/lib/tenant";
 import { hasAtLeast } from "@/lib/rbac";
-import { isEncryptionConfigured } from "@/lib/crypto";
+import { getConnection, type ConnectionView } from "@/lib/whatsapp/connection";
+import { getProvider } from "@/lib/whatsapp/providers";
 import { WA_LANGUAGES, defaultTemplateRows } from "@/lib/whatsapp/templates";
 import { WhatsAppSettingsForm } from "./whatsapp-settings-form";
 import { PageHeader, EmptyState } from "@/components/dashboard/page-header";
@@ -35,13 +36,18 @@ const statusVariant = {
 } as const;
 
 const kindLabel: Record<string, string> = {
+  WELCOME: "Chào mừng",
   POINTS_EARNED: "Cộng điểm",
   REWARD_REDEEMED: "Đổi quà",
   VOUCHER: "Voucher",
   TEST: "Thử",
+  MANUAL: "Thủ công",
+  INBOUND: "Khách gửi",
 };
 
 const templateKeyLabel: Record<string, string> = {
+  welcome: "Chào mừng thành viên mới",
+  member_card: "Chú thích ảnh QR thành viên",
   points_earned: "Cộng điểm",
   reward_redeemed: "Đổi quà",
   voucher: "Voucher mới",
@@ -79,7 +85,7 @@ export default async function WhatsAppSettingsPage({
   }
 
   const [connection, messages] = await Promise.all([
-    db.whatsAppConnection.findUnique({ where: { businessId: ctx.businessId } }),
+    getConnection(ctx.businessId),
     db.whatsAppMessageLog.findMany({
       where,
       orderBy: { createdAt: "desc" },
@@ -89,6 +95,20 @@ export default async function WhatsAppSettingsPage({
       },
     }),
   ]);
+
+  // Stored state for the first paint; the form polls the provider for the live
+  // session as soon as it mounts.
+  const provider = getProvider(connection?.provider);
+  const connectionView: ConnectionView = {
+    status: (connection?.status ?? "DISCONNECTED") as ConnectionView["status"],
+    providerId: provider.id,
+    providerLabel: provider.label,
+    qrDataUrl: connection?.status === "QR_PENDING" ? connection.lastQr ?? undefined : undefined,
+    phoneNumber: connection?.displayPhoneNumber ?? null,
+    profileName: connection?.profileName ?? null,
+    connectedAt: connection?.connectedAt ?? null,
+    error: connection?.lastError ?? null,
+  };
 
   const templates = defaultTemplateRows();
   const byKey = new Map<string, typeof templates>();
@@ -107,29 +127,25 @@ export default async function WhatsAppSettingsPage({
       </Button>
 
       <PageHeader
-        title="WhatsApp Business"
-        description="Gửi thông báo giao dịch cho khách qua WhatsApp Cloud API chính thức của Meta."
+        title="WhatsApp"
+        description="Gửi tin nhắn cho khách bằng chính số WhatsApp của nhà hàng — quét mã QR một lần, không cần Meta Business."
       />
 
       <WhatsAppSettingsForm
         canManageConnection={hasAtLeast(ctx.role, "BUSINESS_OWNER")}
         canManage={hasAtLeast(ctx.role, "BUSINESS_MANAGER")}
-        status={connection?.status ?? "DISCONNECTED"}
-        phoneNumberId={connection?.phoneNumberId ?? ""}
-        wabaId={connection?.wabaId ?? ""}
-        graphApiVersion={connection?.graphApiVersion ?? "v21.0"}
+        connection={connectionView}
         defaultLanguage={connection?.defaultLanguage ?? "vi"}
-        hasToken={!!connection?.accessTokenCipher}
+        notifyOnSignup={connection?.notifyOnSignup ?? true}
         notifyOnEarn={connection?.notifyOnEarn ?? true}
         notifyOnRedeem={connection?.notifyOnRedeem ?? true}
         notifyOnVoucher={connection?.notifyOnVoucher ?? true}
-        encryptionReady={isEncryptionConfigured()}
       />
 
       {/* Template previews (3 languages) */}
       <Card>
         <CardHeader>
-          <CardTitle>Nội dung mẫu (VI · DE · EN)</CardTitle>
+          <CardTitle>Nội dung tin nhắn (VI · DE · EN)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {Array.from(byKey.entries()).map(([key, rows]) => (
@@ -146,7 +162,7 @@ export default async function WhatsAppSettingsPage({
                         {lang}
                       </Badge>
                       <p className="whitespace-pre-line text-xs text-muted-foreground">
-                        {row?.bodyPreview}
+                        {row?.body}
                       </p>
                     </div>
                   );
@@ -155,8 +171,8 @@ export default async function WhatsAppSettingsPage({
             </div>
           ))}
           <p className="text-xs text-muted-foreground">
-            Các mẫu này phải được duyệt trong WhatsApp Manager với đúng thứ tự biến{" "}
-            {"{{1}}, {{2}}, …"} như trên.
+            Đây là tin nhắn chat thường gửi từ số của nhà hàng — không cần ai duyệt.
+            Các biến {"{{1}}, {{2}}, …"} được thay theo đúng thứ tự ở trên.
           </p>
         </CardContent>
       </Card>

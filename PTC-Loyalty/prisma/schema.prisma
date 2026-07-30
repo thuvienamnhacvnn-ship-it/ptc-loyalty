@@ -164,6 +164,8 @@ enum SupportTicketStatus {
 
 enum WhatsAppConnectionStatus {
   DISCONNECTED
+  QR_PENDING // login QR issued, waiting for the owner to scan it
+  CONNECTING // QR scanned, provider is establishing the session
   CONNECTED
   ERROR
 }
@@ -177,6 +179,7 @@ enum WhatsAppMessageStatus {
 }
 
 enum WhatsAppMessageKind {
+  WELCOME // signup: welcome text + membership QR image
   POINTS_EARNED
   REWARD_REDEEMED
   VOUCHER
@@ -865,43 +868,54 @@ model LoginAttempt {
   @@index([blockedUntil])
 }
 
-// ── WhatsApp Business Platform (Meta Cloud API) ──────────────────────────────
-// All rows are tenant-scoped by `businessId`. Access tokens are stored ONLY as
-// AES-256-GCM ciphertext (see src/lib/crypto.ts) and never leave the server.
+// ── WhatsApp (own number, WhatsApp Web Multi-Device via a swappable provider) ─
+// Every business messages its customers from ITS OWN WhatsApp number: the owner
+// scans a login QR once and the provider (Evolution API by default — see
+// src/lib/whatsapp/providers) keeps that Web-MD session alive. There is no Meta
+// Cloud API, no Business Verification and no template approval anywhere here.
+//
+// All rows are tenant-scoped by `businessId`. The provider's per-session API key
+// is stored ONLY as AES-256-GCM ciphertext (src/lib/crypto.ts).
 
 model WhatsAppConnection {
-  id                 String                   @id @default(cuid())
-  businessId         String                   @unique
-  status             WhatsAppConnectionStatus @default(DISCONNECTED)
-  phoneNumberId      String? // Meta Phone Number ID
-  wabaId             String? // WhatsApp Business Account ID
-  displayPhoneNumber String? // human-readable sender number
-  accessTokenCipher  String? // AES-256-GCM "iv:tag:ciphertext" — NEVER sent to client
-  graphApiVersion    String                   @default("v21.0")
-  defaultLanguage    String                   @default("vi")
+  id                  String                   @id @default(cuid())
+  businessId          String                   @unique
+  status              WhatsAppConnectionStatus @default(DISCONNECTED)
+  provider            String                   @default("evolution") // provider id — see providers/index.ts
+  instanceId          String?                  @unique // provider-side session name
+  instanceTokenCipher String? // AES-256-GCM "iv:tag:cipher" — NEVER sent to client
+  displayPhoneNumber  String? // the restaurant's OWN WhatsApp number, as reported after pairing
+  profileName         String? // WhatsApp profile name of that number
+  // Transient login QR (data URL) shown in Settings while status = QR_PENDING.
+  lastQr              String?
+  lastQrAt            DateTime?
+  webhookSecret       String? // shared secret in the provider callback URL
+  defaultLanguage     String                   @default("vi")
   // Per-event opt-out toggles controlled by the business.
-  notifyOnEarn       Boolean                  @default(true)
-  notifyOnRedeem     Boolean                  @default(true)
-  notifyOnVoucher    Boolean                  @default(true)
-  lastError          String?
-  connectedAt        DateTime?
-  createdAt          DateTime                 @default(now())
-  updatedAt          DateTime                 @updatedAt
+  notifyOnSignup      Boolean                  @default(true)
+  notifyOnEarn        Boolean                  @default(true)
+  notifyOnRedeem      Boolean                  @default(true)
+  notifyOnVoucher     Boolean                  @default(true)
+  lastError           String?
+  connectedAt         DateTime?
+  lastSeenAt          DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
+// Per-business message copy. Free-form text — nothing is submitted to or
+// approved by anyone; `body` uses {{1}}, {{2}}, … positional placeholders.
 model WhatsAppTemplate {
-  id               String   @id @default(cuid())
-  businessId       String
-  key              String // points_earned | reward_redeemed | voucher
-  language         String // vi | de | en
-  metaTemplateName String // approved template name on the Meta side
-  category         String   @default("UTILITY")
-  bodyPreview      String // local preview text with {{1}} placeholders
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id         String   @id @default(cuid())
+  businessId String
+  key        String // welcome | points_earned | reward_redeemed | voucher
+  language   String // vi | de | en
+  body       String
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
@@ -921,7 +935,7 @@ model WhatsAppMessageLog {
   language          String                @default("vi")
   templateKey       String?
   idempotencyKey    String // prevents duplicate sends
-  providerMessageId String? // wamid returned by Meta
+  providerMessageId String? // message id returned by the WhatsApp provider
   transactionId     String?
   payloadSnapshot   Json? // variables sent (for audit/preview)
   error             String?

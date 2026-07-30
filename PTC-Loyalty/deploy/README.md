@@ -68,19 +68,16 @@ giới hạn log Docker và bật cập nhật bảo mật tự động.
 
 ```bash
 cd /opt/ptc-bonus
-cp .env.production.example .env.production
-
-# Sinh sẵn toàn bộ khóa:
-for k in AUTH_SECRET QR_SIGNING_SECRET ENCRYPTION_KEY POS_JWT_SECRET; do
-  echo "$k=\"$(openssl rand -base64 32)\""
-done
-echo "POSTGRES_PASSWORD=\"$(openssl rand -hex 24)\""
-echo "EVOLUTION_API_KEY=\"$(openssl rand -hex 32)\""
-echo "CRON_SECRET=\"$(openssl rand -hex 32)\""
-
-nano .env.production      # dán các giá trị trên + ACME_EMAIL
-chmod 600 .env.production
+bash deploy/gen-env.sh admin@ptc-bonus.com
 ```
+
+Script sinh toàn bộ 7 khóa ngẫu nhiên ngay trên server và ghi `.env.production`
+(chmod 600) — không phải gõ hay dán secret nào.
+
+Sao lưu file này ra nơi an toàn: **mất `ENCRYPTION_KEY` nghĩa là mọi nhà hàng
+phải quét lại mã QR WhatsApp.** Muốn xem lại giá trị: `cat .env.production`.
+
+`.env.production.example` chỉ để tham khảo ý nghĩa từng biến.
 
 ### 4. Chứng chỉ TLS (chạy một lần)
 

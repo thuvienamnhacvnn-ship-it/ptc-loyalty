@@ -29,6 +29,9 @@ command -v openssl >/dev/null || { echo "Thiếu openssl: apt install -y openssl
 b64() { openssl rand -base64 32 | tr -d '\n'; }
 hex() { openssl rand -hex "$1" | tr -d '\n'; }
 
+# Generated once so the app URL and the postgres URL agree on the password.
+PG_PASSWORD="$(hex 24)"
+
 cat > "$ENV_FILE" <<EOF
 # Sinh tự động bởi deploy/gen-env.sh — $(date -Is)
 # KHÔNG commit file này. Sao lưu ở nơi an toàn: mất ENCRYPTION_KEY nghĩa là
@@ -37,7 +40,12 @@ cat > "$ENV_FILE" <<EOF
 NEXT_PUBLIC_APP_URL="$APP_URL"
 ACME_EMAIL="$ACME_EMAIL"
 
-POSTGRES_PASSWORD="$(hex 24)"
+POSTGRES_PASSWORD="$PG_PASSWORD"
+
+# Database dùng cho app. Mặc định là postgres chạy trong stack này.
+# Đang có dữ liệu ở nơi khác (Neon, RDS…)? Thay bằng chuỗi kết nối đó để giữ
+# nguyên dữ liệu — postgres nội bộ vẫn phục vụ gateway WhatsApp.
+DATABASE_URL="postgresql://ptc:$PG_PASSWORD@postgres:5432/ptc_bonus?connection_limit=10&pool_timeout=20"
 
 AUTH_SECRET="$(b64)"
 QR_SIGNING_SECRET="$(b64)"

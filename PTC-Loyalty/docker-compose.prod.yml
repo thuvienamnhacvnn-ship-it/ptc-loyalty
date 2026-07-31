@@ -56,7 +56,10 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgresql://ptc:${POSTGRES_PASSWORD}@postgres:5432/ptc_bonus?connection_limit=10&pool_timeout=20
+      # Set in .env.production. Points at the bundled postgres by default, but
+      # can name an external database (Neon, RDS…) so an existing deployment
+      # keeps its data when it moves onto this host.
+      DATABASE_URL: ${DATABASE_URL}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
       # Auth.js v5 reads AUTH_URL; NEXTAUTH_URL is kept for the v4-style
       # fallback. Behind nginx the host header is already trusted

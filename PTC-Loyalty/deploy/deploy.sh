@@ -18,7 +18,7 @@ log() { echo -e "\n\033[1;36m▶ $*\033[0m"; }
 # Fail fast on placeholder secrets rather than booting an insecure stack.
 log "Kiểm tra biến môi trường"
 missing=0
-for key in POSTGRES_PASSWORD AUTH_SECRET QR_SIGNING_SECRET ENCRYPTION_KEY POS_JWT_SECRET EVOLUTION_API_KEY NEXT_PUBLIC_APP_URL ACME_EMAIL; do
+for key in DATABASE_URL POSTGRES_PASSWORD AUTH_SECRET QR_SIGNING_SECRET ENCRYPTION_KEY POS_JWT_SECRET EVOLUTION_API_KEY NEXT_PUBLIC_APP_URL ACME_EMAIL; do
   value="$(grep -E "^$key=" "$ENV_FILE" | cut -d= -f2- | tr -d '"' || true)"
   if [ -z "$value" ] || echo "$value" | grep -qi 'replace-me\|changeme\|^$'; then
     echo "  ✗ $key chưa được đặt"

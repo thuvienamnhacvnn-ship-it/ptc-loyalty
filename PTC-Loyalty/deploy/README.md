@@ -37,8 +37,12 @@ Tổng ~10 GB / 12 GB, cộng 4 GB swap do script bootstrap tạo.
 Sau khi DNS đã trỏ (bước 1 bên dưới), SSH vào VPS bằng root và chạy:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/thuvienamnhacvnn-ship-it/ptc-loyalty/main/deploy/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/thuvienamnhacvnn-ship-it/ptc-loyalty/main/PTC-Loyalty/deploy/install.sh | bash
 ```
+
+> Gốc repo là thư mục home của máy dev, nên project nằm trong thư mục con
+> `PTC-Loyalty/` — vì thế URL có đoạn đó. Script tự dò thư mục project theo
+> `docker-compose.prod.yml`, đường dẫn có đổi cũng không sao.
 
 Script tự làm hết: kiểm tra RAM/đĩa/DNS → cài Docker + gia cố → tải code →
 sinh secrets → xin chứng chỉ TLS → build → khởi động → kiểm tra
@@ -75,7 +79,7 @@ ssh root@162.19.44.241
 
 apt update && apt install -y git
 git clone https://github.com/thuvienamnhacvnn-ship-it/ptc-loyalty.git /opt/ptc-bonus
-cd /opt/ptc-bonus
+cd /opt/ptc-bonus/PTC-Loyalty      # project nằm trong thư mục con của repo
 
 bash deploy/bootstrap-vps.sh
 ```
@@ -86,7 +90,7 @@ giới hạn log Docker và bật cập nhật bảo mật tự động.
 ### 3. Biến môi trường
 
 ```bash
-cd /opt/ptc-bonus
+cd /opt/ptc-bonus/PTC-Loyalty
 bash deploy/gen-env.sh admin@ptc-bonus.com
 ```
 
@@ -137,7 +141,7 @@ crontab -e
 SECRET=<giá trị CRON_SECRET trong .env.production>
 0 8 * * * curl -fsS -H "Authorization: Bearer $SECRET" https://ptc-bonus.com/api/cron/birthday >/dev/null
 0 9 * * * curl -fsS -H "Authorization: Bearer $SECRET" https://ptc-bonus.com/api/cron/winback  >/dev/null
-30 3 * * * /opt/ptc-bonus/deploy/backup.sh >> /var/log/ptc-backup.log 2>&1
+30 3 * * * /opt/ptc-bonus/PTC-Loyalty/deploy/backup.sh >> /var/log/ptc-backup.log 2>&1
 ```
 
 ---
@@ -159,7 +163,7 @@ từ chính số của quán.
 ## Cập nhật code
 
 ```bash
-cd /opt/ptc-bonus
+cd /opt/ptc-bonus/PTC-Loyalty
 bash deploy/deploy.sh --pull
 ```
 
@@ -168,7 +172,7 @@ Schema DB được `prisma db push` tự áp dụng khi container app khởi đ�
 ## Vận hành
 
 ```bash
-cd /opt/ptc-bonus
+cd /opt/ptc-bonus/PTC-Loyalty
 COMPOSE="docker compose --env-file .env.production -f docker-compose.prod.yml"
 
 $COMPOSE ps                      # trạng thái

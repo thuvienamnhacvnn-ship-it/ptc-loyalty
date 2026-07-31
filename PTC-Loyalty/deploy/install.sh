@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # PTC-BONUS — cài đặt production từ đầu đến hết bằng MỘT lệnh.
 #
-#   curl -fsSL https://raw.githubusercontent.com/thuvienamnhacvnn-ship-it/ptc-loyalty/main/deploy/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/thuvienamnhacvnn-ship-it/ptc-loyalty/main/PTC-Loyalty/deploy/install.sh | bash
+#
+# (Project nằm trong thư mục con PTC-Loyalty/ của repo — script tự dò nên
+#  đường dẫn đó có đổi cũng không sao.)
 #
 # Chạy lại được nhiều lần: mỗi bước tự bỏ qua nếu đã xong. Dùng để cài lần đầu
 # và cũng để cập nhật code về sau.
@@ -60,7 +63,19 @@ else
   ok "đã tải code về $APP_DIR"
 fi
 
-cd "$APP_DIR"
+# Project không nhất thiết nằm ở gốc repo — dò theo docker-compose.prod.yml
+# thay vì đoán đường dẫn.
+if [ -f "$APP_DIR/docker-compose.prod.yml" ]; then
+  PROJECT_DIR="$APP_DIR"
+else
+  FOUND="$(find "$APP_DIR" -maxdepth 3 -name docker-compose.prod.yml \
+    -not -path '*/node_modules/*' -print -quit 2>/dev/null || true)"
+  [ -n "$FOUND" ] || die "Không tìm thấy docker-compose.prod.yml trong $APP_DIR"
+  PROJECT_DIR="$(dirname "$FOUND")"
+fi
+cd "$PROJECT_DIR"
+ok "thư mục project: $PROJECT_DIR"
+
 bash deploy/bootstrap-vps.sh
 
 # ── 2. Bí mật ────────────────────────────────────────────────────────────────
@@ -97,7 +112,7 @@ if echo "$HEALTH" | grep -q '"ok":true'; then
   ok "https://$DOMAIN/api/health → $HEALTH"
 else
   echo "  ⚠️  Chưa gọi được qua HTTPS: ${HEALTH:-không phản hồi}"
-  echo "     Xem log: cd $APP_DIR && $COMPOSE logs --tail 60 nginx app"
+  echo "     Xem log: cd $PROJECT_DIR && $COMPOSE logs --tail 60 nginx app"
   exit 1
 fi
 
@@ -113,8 +128,8 @@ Tiếp theo, trên trình duyệt:
   3. QR đăng ký khách → In           → đặt lên bàn
 
 Sao lưu (rất nên làm ngay):
-  cp $APP_DIR/.env.production ~/ptc-env-backup.txt
-  crontab -e   →   30 3 * * * $APP_DIR/deploy/backup.sh >> /var/log/ptc-backup.log 2>&1
+  cp $PROJECT_DIR/.env.production ~/ptc-env-backup.txt
+  crontab -e   →   30 3 * * * $PROJECT_DIR/deploy/backup.sh >> /var/log/ptc-backup.log 2>&1
 
 Cập nhật về sau: chạy lại đúng lệnh cài đặt này.
 

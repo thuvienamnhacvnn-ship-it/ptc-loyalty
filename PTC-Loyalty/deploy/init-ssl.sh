@@ -64,6 +64,15 @@ sleep 5
 log "Kiểm tra nginx phục vụ được thư mục ACME"
 $COMPOSE exec -T nginx nginx -t
 
+# certbot refuses to write into a live/ directory it did not create, and the
+# self-signed placeholder above is exactly that. nginx already holds the old
+# files open, so removing them now costs nothing.
+log "Dọn chứng chỉ tạm"
+$COMPOSE run --rm --entrypoint sh certbot -c "
+  rm -rf '/etc/letsencrypt/live/$DOMAIN' \
+         '/etc/letsencrypt/archive/$DOMAIN' \
+         '/etc/letsencrypt/renewal/$DOMAIN.conf'"
+
 log "Xin chứng chỉ thật từ Let's Encrypt"
 $COMPOSE run --rm --entrypoint certbot certbot \
   certonly --webroot -w /var/www/certbot \

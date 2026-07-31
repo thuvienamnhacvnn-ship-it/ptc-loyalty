@@ -54,7 +54,7 @@ POS_JWT_SECRET="$(b64)"
 CRON_SECRET="$(hex 32)"
 
 EVOLUTION_API_KEY="$(hex 32)"
-EVOLUTION_IMAGE="atendai/evolution-api:v2.2.3"
+EVOLUTION_IMAGE="evoapicloud/evolution-api:v2.3.7"
 WA_WEB_VERSION="2.3000.1023204200"
 EOF
 

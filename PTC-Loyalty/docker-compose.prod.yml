@@ -91,7 +91,7 @@ services:
   # One long-lived session per restaurant, so every message leaves from that
   # restaurant's OWN number. No Meta Business API anywhere.
   evolution:
-    image: ${EVOLUTION_IMAGE:-atendai/evolution-api:v2.2.3}
+    image: ${EVOLUTION_IMAGE:-evoapicloud/evolution-api:v2.3.7}
     restart: always
     depends_on:
       postgres:

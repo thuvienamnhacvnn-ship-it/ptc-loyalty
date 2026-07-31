@@ -22,12 +22,28 @@ EMAIL="$(grep -E '^ACME_EMAIL=' "$ENV_FILE" | cut -d= -f2- | tr -d '"' || true)"
 
 log() { echo -e "\n\033[1;36m▶ $*\033[0m"; }
 
+resolve() {
+  getent hosts "$1" 2>/dev/null | awk '{print $1}' | head -1 && return 0
+  command -v dig >/dev/null && dig +short "$1" A | tail -1
+}
+
 log "Kiểm tra DNS"
-RESOLVED="$(getent hosts "$DOMAIN" | awk '{print $1}' | head -1 || true)"
+RESOLVED="$(resolve "$DOMAIN")"
 echo "$DOMAIN → ${RESOLVED:-KHÔNG PHÂN GIẢI ĐƯỢC}"
 if [ -z "$RESOLVED" ]; then
   echo "DNS chưa trỏ về VPS. Tạo bản ghi A rồi chạy lại." >&2
   exit 1
+fi
+
+# Let's Encrypt validates EVERY name in the request: asking for a www that has
+# no DNS record fails the whole certificate, apex included.
+WWW_IP="$(resolve "www.$DOMAIN")"
+if [ -n "$WWW_IP" ]; then
+  CERT_DOMAINS=(-d "$DOMAIN" -d "www.$DOMAIN")
+  echo "www.$DOMAIN → $WWW_IP"
+else
+  CERT_DOMAINS=(-d "$DOMAIN")
+  echo "www.$DOMAIN → chưa có bản ghi, cấp chứng chỉ cho riêng $DOMAIN"
 fi
 
 log "Tạo chứng chỉ tạm (self-signed) để nginx khởi động được"
@@ -52,7 +68,7 @@ log "Xin chứng chỉ thật từ Let's Encrypt"
 $COMPOSE run --rm --entrypoint certbot certbot \
   certonly --webroot -w /var/www/certbot \
   --email "$EMAIL" --agree-tos --no-eff-email --force-renewal \
-  -d "$DOMAIN" -d "www.$DOMAIN"
+  "${CERT_DOMAINS[@]}"
 
 log "Nạp lại nginx với chứng chỉ thật"
 $COMPOSE exec -T nginx nginx -s reload

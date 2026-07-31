@@ -46,9 +46,19 @@ if [ -z "$DNS_IP" ]; then
   die "DNS chưa trỏ. Tạo bản ghi A: @ → $MY_IP và www → $MY_IP, đợi vài phút rồi chạy lại."
 fi
 if [ -n "$MY_IP" ] && [ "$DNS_IP" != "$MY_IP" ]; then
-  die "DNS đang trỏ về $DNS_IP nhưng máy này là $MY_IP. Sửa bản ghi A rồi chạy lại."
+  die "DNS đang trỏ về $DNS_IP nhưng máy này là $MY_IP.
+  Sửa bản ghi A của $DOMAIN thành $MY_IP, đợi DNS lan (5–30 phút) rồi chạy lại.
+  Nếu site đang chạy ở nơi khác (Vercel…), đổi bản ghi A là chuyển hẳn về đây."
 fi
 ok "DNS đã trỏ đúng"
+
+WWW_IP="$(dig +short "www.$DOMAIN" A | tail -1 || true)"
+if [ -z "$WWW_IP" ]; then
+  echo "  ⚠️  www.$DOMAIN chưa có bản ghi A — chứng chỉ sẽ chỉ cấp cho $DOMAIN."
+  echo "     Thêm bản ghi A www → $MY_IP nếu muốn dùng cả www."
+else
+  ok "www.$DOMAIN → $WWW_IP"
+fi
 
 # ── 1. Chuẩn bị hệ thống ─────────────────────────────────────────────────────
 step "Cài Docker + gia cố hệ thống"

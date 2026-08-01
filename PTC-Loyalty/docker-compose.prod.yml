@@ -97,6 +97,11 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       POS_JWT_SECRET: ${POS_JWT_SECRET}
       CRON_SECRET: ${CRON_SECRET}
+      # Transactional email (password reset, birthday, win-back). Without a key
+      # sendEmail() logs instead of sending — the reset link then never reaches
+      # the user, so set these before relying on "forgot password".
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
       # WhatsApp: the gateway is internal-only, so both directions stay on the
       # Docker network and never touch the public internet.
       WHATSAPP_PROVIDER: evolution

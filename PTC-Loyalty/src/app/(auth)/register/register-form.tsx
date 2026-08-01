@@ -6,6 +6,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import { registerBusiness, type ActionState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { BUSINESS_TYPES as businessTypes } from "@/lib/business-types";
 
@@ -84,10 +85,9 @@ export function RegisterForm() {
 
       <div className="space-y-2">
         <Label htmlFor="password">Mật khẩu</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           placeholder="Tối thiểu 8 ký tự"
           required

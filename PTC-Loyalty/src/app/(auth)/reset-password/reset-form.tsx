@@ -7,6 +7,7 @@ import { AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { resetPassword, type ResetPasswordState } from "../actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 
 function SubmitButton() {
@@ -87,10 +88,9 @@ export function ResetPasswordForm({ token, email }: { token: string; email: stri
 
       <div className="space-y-2">
         <Label htmlFor="password">Mật khẩu mới</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           placeholder="Tối thiểu 8 ký tự"
           required
@@ -102,10 +102,9 @@ export function ResetPasswordForm({ token, email }: { token: string; email: stri
 
       <div className="space-y-2">
         <Label htmlFor="confirmPassword">Xác nhận mật khẩu mới</Label>
-        <Input
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
           autoComplete="new-password"
           required
         />

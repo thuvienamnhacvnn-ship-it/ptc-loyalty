@@ -21,10 +21,9 @@ new PrismaClient().\$queryRaw\`SELECT 1\`.then(() => process.exit(0)).catch(() =
 done
 echo "[entrypoint] database is up"
 
-if [ "${SKIP_DB_PUSH:-0}" != "1" ]; then
-  echo "[entrypoint] applying schema (prisma db push)..."
-  ./node_modules/prisma/build/index.js db push --skip-generate --accept-data-loss
-fi
+# Schema changes are applied by the one-shot `migrate` service, which runs from
+# the build stage where the full Prisma CLI (and its dependency tree) lives.
+# Keeping the CLI out of the runtime image is what keeps it small.
 
 echo "[entrypoint] starting: $*"
 exec "$@"

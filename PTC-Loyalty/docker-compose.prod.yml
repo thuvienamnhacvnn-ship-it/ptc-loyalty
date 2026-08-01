@@ -42,6 +42,29 @@ services:
     networks: [edge]
     mem_limit: 128m
 
+  # ── Schema migration (one-shot, runs before the app starts) ────────────────
+  # Built from the `build` stage because that is where the full Prisma CLI and
+  # its dependencies live; the runtime image stays slim without them.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    image: ptc-bonus-migrate:latest
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    command: ["npx", "prisma", "db", "push", "--skip-generate", "--accept-data-loss"]
+    networks: [internal]
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
   # ── Application ────────────────────────────────────────────────────────────
   app:
     build:
@@ -54,6 +77,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       # Set in .env.production. Points at the bundled postgres by default, but
@@ -81,11 +106,7 @@ services:
       WHATSAPP_WEBHOOK_BASE_URL: http://app:3000
     networks: [internal]
     mem_limit: 1536m
-    logging: &logging
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "5"
+    logging: *logging
 
   # ── WhatsApp Web Multi-Device gateway ──────────────────────────────────────
   # One long-lived session per restaurant, so every message leaves from that

@@ -57,9 +57,9 @@ COPY --from=build --chown=node:node /app/.next/standalone ./
 COPY --from=build --chown=node:node /app/.next/static ./.next/static
 COPY --from=build --chown=node:node /app/public ./public
 
-# Prisma schema + CLI so the entrypoint can apply migrations, and the seed.
-COPY --from=build --chown=node:node /app/prisma ./prisma
-COPY --from=build --chown=node:node /app/node_modules/prisma ./node_modules/prisma
+# Prisma query engine + generated client. The CLI is deliberately NOT here:
+# it drags in a deep dependency tree (@prisma/config → effect → …) that has no
+# business in a runtime image. Schema changes run in the `migrate` service.
 COPY --from=build --chown=node:node /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build --chown=node:node /app/node_modules/.prisma ./node_modules/.prisma
 COPY --chown=node:node docker/app-entrypoint.sh /usr/local/bin/app-entrypoint.sh

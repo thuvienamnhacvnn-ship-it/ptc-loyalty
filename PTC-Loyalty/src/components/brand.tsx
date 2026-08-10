@@ -19,7 +19,8 @@ export function Brand({
     <div className={cn("flex items-center gap-2", className)}>
       <div
         className={cn(
-          "relative flex items-center justify-center bg-gradient-to-br from-primary to-accent text-white shadow-sm ring-1 ring-inset ring-white/25",
+          // Cobalt đặc + viền vàng mảnh — vàng chỉ làm nét, không tô mảng.
+          "relative flex items-center justify-center bg-gradient-to-br from-primary to-[hsl(var(--primary)/0.65)] text-white shadow-sm ring-1 ring-inset ring-[hsl(var(--gold-hi))]",
           s.box,
         )}
       >
@@ -28,7 +29,7 @@ export function Brand({
         <Sparkles className={cn("relative", s.icon)} />
       </div>
       <span className={cn("font-bold tracking-tight", s.text)}>
-        PTC<span className="text-accent"> Loyalty</span>
+        PTC<span className="text-[hsl(var(--gold-hi))]"> Loyalty</span>
       </span>
     </div>
   );

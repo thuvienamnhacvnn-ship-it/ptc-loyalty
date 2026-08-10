@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="In ấn">
+  <defs>
+    <linearGradient id="g-workprint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050E1B"/><stop offset="1" stop-color="#0A1F3D"/>
+    </linearGradient>
+    <linearGradient id="c-workprint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B8CFF"/><stop offset="1" stop-color="#145DFF"/>
+    </linearGradient>
+    <linearGradient id="au-workprint" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B8893F"/><stop offset=".5" stop-color="#CDA45E"/><stop offset="1" stop-color="#B8893F"/>
+    </linearGradient>
+    <radialGradient id="glow-workprint" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#145DFF" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#145DFF" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots-workprint" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.6" cy="1.6" r="1.6" fill="#5B8CFF" opacity=".26"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#g-workprint)"/>
+  <rect width="1200" height="800" fill="url(#dots-workprint)"/>
+  <ellipse cx="864" cy="176" rx="504" ry="336" fill="url(#glow-workprint)"/>
+  <polygon points="0,800 552,800 0,336" fill="#145DFF" opacity=".14"/>
+
+  <g transform="translate(0 0)">
+    <circle fill="none" stroke="url(#c-workprint)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  cx="510" cy="440" r="86"/>
+    <circle fill="none" stroke="url(#c-workprint)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  cx="700" cy="440" r="86"/>
+    <path fill="none" stroke="url(#c-workprint)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M380 600 h450"/>
+    <path fill="none" stroke="url(#au-workprint)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"  d="M420 660 h380"/>
+    <path fill="none" stroke="url(#c-workprint)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M510 354 v-64 M700 354 v-64"/></g>
+
+  <path d="M64 736 H 360" stroke="url(#au-workprint)" stroke-width="2" opacity=".95"/>
+  
+  <rect x="1" y="1" width="1198" height="798" fill="none" stroke="#5B8CFF" stroke-width="2" opacity=".16"/>
+</svg>

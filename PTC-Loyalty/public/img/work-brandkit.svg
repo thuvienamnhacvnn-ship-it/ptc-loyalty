@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="Bộ nhận diện">
+  <defs>
+    <linearGradient id="g-workbrandkit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050E1B"/><stop offset="1" stop-color="#0A1F3D"/>
+    </linearGradient>
+    <linearGradient id="c-workbrandkit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B8CFF"/><stop offset="1" stop-color="#145DFF"/>
+    </linearGradient>
+    <linearGradient id="au-workbrandkit" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B8893F"/><stop offset=".5" stop-color="#CDA45E"/><stop offset="1" stop-color="#B8893F"/>
+    </linearGradient>
+    <radialGradient id="glow-workbrandkit" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#145DFF" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#145DFF" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots-workbrandkit" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.6" cy="1.6" r="1.6" fill="#5B8CFF" opacity=".26"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#g-workbrandkit)"/>
+  <rect width="1200" height="800" fill="url(#dots-workbrandkit)"/>
+  <ellipse cx="864" cy="176" rx="504" ry="336" fill="url(#glow-workbrandkit)"/>
+  <polygon points="0,800 552,800 0,336" fill="#145DFF" opacity=".14"/>
+
+  <g transform="translate(0 0)">
+    <path fill="none" stroke="url(#c-workbrandkit)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M410 350 h230 v300 H410 z"/>
+    <path fill="none" stroke="url(#c-workbrandkit)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M676 396 h150 v210 h-150 z"/>
+    <path fill="none" stroke="url(#au-workbrandkit)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"  d="M456 420 h140 M456 470 h140 M456 520 h90"/>
+    <circle fill="none" stroke="url(#c-workbrandkit)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  cx="751" cy="470" r="34"/>
+    <path fill="none" stroke="url(#au-workbrandkit)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"  d="M706 560 h90"/></g>
+
+  <path d="M64 736 H 360" stroke="url(#au-workbrandkit)" stroke-width="2" opacity=".95"/>
+  
+  <rect x="1" y="1" width="1198" height="798" fill="none" stroke="#5B8CFF" stroke-width="2" opacity=".16"/>
+</svg>

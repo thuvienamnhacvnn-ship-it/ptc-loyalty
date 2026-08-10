@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="Bán lẻ & Siêu thị">
+  <defs>
+    <linearGradient id="g-industryretail" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050E1B"/><stop offset="1" stop-color="#0A1F3D"/>
+    </linearGradient>
+    <linearGradient id="c-industryretail" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B8CFF"/><stop offset="1" stop-color="#145DFF"/>
+    </linearGradient>
+    <linearGradient id="au-industryretail" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B8893F"/><stop offset=".5" stop-color="#CDA45E"/><stop offset="1" stop-color="#B8893F"/>
+    </linearGradient>
+    <radialGradient id="glow-industryretail" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#145DFF" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#145DFF" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots-industryretail" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.6" cy="1.6" r="1.6" fill="#5B8CFF" opacity=".26"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#g-industryretail)"/>
+  <rect width="1200" height="800" fill="url(#dots-industryretail)"/>
+  <ellipse cx="864" cy="176" rx="504" ry="336" fill="url(#glow-industryretail)"/>
+  <polygon points="0,800 552,800 0,336" fill="#145DFF" opacity=".14"/>
+
+  <g transform="translate(0 0)">
+    <path fill="none" stroke="url(#c-industryretail)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M450 400 h300 l34 220 H416 z"/>
+    <path fill="none" stroke="url(#c-industryretail)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M530 400 v-52 a70 70 0 0 1 140 0 v52"/>
+    <path fill="none" stroke="url(#au-industryretail)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"  d="M470 470 h260"/>
+    <circle fill="none" stroke="url(#c-industryretail)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  cx="600" cy="530" r="22"/></g>
+
+  <path d="M64 736 H 360" stroke="url(#au-industryretail)" stroke-width="2" opacity=".95"/>
+  <text x="64" y="718" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="4" fill="#CDA45E" opacity=".95">03</text>
+  <rect x="1" y="1" width="1198" height="798" fill="none" stroke="#5B8CFF" stroke-width="2" opacity=".16"/>
+</svg>

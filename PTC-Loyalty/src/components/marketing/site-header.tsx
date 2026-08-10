@@ -8,16 +8,16 @@ import { Button } from "@/components/ui/button";
 
 const links = [
   { href: "/features", label: "Tính năng" },
+  { href: "/#ptc-creative", label: "Dịch vụ" },
   { href: "/pricing", label: "Bảng giá" },
-  { href: "/business/pho-hanoi", label: "Demo" },
   { href: "/about", label: "Về chúng tôi" },
 ];
 
 export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 w-full">
-      {/* gradient hairline at very top */}
-      <div className="h-0.5 w-full bg-gradient-to-r from-primary via-accent to-primary" />
+      {/* nét vàng mảnh trên cùng — mô-típ nhận diện PTC Creative */}
+      <div className="ptc-rule-gold w-full" />
       <div className="border-b bg-background/70 backdrop-blur-xl">
         <div className="container flex h-16 items-center justify-between">
           <Link href="/" className="transition-opacity hover:opacity-90">
@@ -32,7 +32,7 @@ export function SiteHeader() {
                 className="group relative text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 {l.label}
-                <span className="absolute -bottom-1 left-0 h-0.5 w-0 rounded-full bg-gradient-to-r from-primary to-accent transition-all duration-300 group-hover:w-full" />
+                <span className="absolute -bottom-1 left-0 h-0.5 w-0 rounded-full bg-primary transition-all duration-300 group-hover:w-full" />
               </Link>
             ))}
           </nav>

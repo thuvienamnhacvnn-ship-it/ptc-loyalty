@@ -13,8 +13,10 @@ const groups = [
     ],
   },
   {
-    title: "Công ty",
+    title: "PTC Creative",
     links: [
+      { href: "/#ptc-creative", label: "Dịch vụ" },
+      { href: "https://ptc-creative.com", label: "ptc-creative.com" },
       { href: "/about", label: "Về chúng tôi" },
       { href: "/contact", label: "Liên hệ" },
     ],
@@ -34,14 +36,18 @@ const groups = [
 export function SiteFooter() {
   return (
     <footer className="relative border-t bg-muted/30">
-      <div className="h-0.5 w-full bg-gradient-to-r from-primary via-accent to-primary opacity-70" />
+      <div className="ptc-rule-gold w-full" />
       <div className="container grid gap-10 py-14 md:grid-cols-5">
         <div className="space-y-4 md:col-span-2">
           <Brand size="lg" />
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-[hsl(var(--gold-hi))]">
+            Design · Print · Build · Grow
+          </p>
           <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
             Nền tảng khách hàng thân thiết, tích điểm và voucher cho nhà hàng,
             salon và cửa hàng của người Việt tại Đức. Không cần app, bảo mật chuẩn
-            EU.
+            EU. Một sản phẩm của PTC Creative — xưởng thiết kế, sản xuất và công
+            nghệ tại Berlin.
           </p>
           <div className="space-y-1.5 pt-1 text-sm text-muted-foreground">
             <p className="font-medium text-foreground">A&amp;T VisioInvestment GmbH</p>

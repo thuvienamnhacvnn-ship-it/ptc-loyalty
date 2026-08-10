@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="Branding">
+  <defs>
+    <linearGradient id="g-servicebranding" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050E1B"/><stop offset="1" stop-color="#0A1F3D"/>
+    </linearGradient>
+    <linearGradient id="c-servicebranding" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B8CFF"/><stop offset="1" stop-color="#145DFF"/>
+    </linearGradient>
+    <linearGradient id="au-servicebranding" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B8893F"/><stop offset=".5" stop-color="#CDA45E"/><stop offset="1" stop-color="#B8893F"/>
+    </linearGradient>
+    <radialGradient id="glow-servicebranding" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#145DFF" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#145DFF" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots-servicebranding" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.6" cy="1.6" r="1.6" fill="#5B8CFF" opacity=".26"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#g-servicebranding)"/>
+  <rect width="1200" height="800" fill="url(#dots-servicebranding)"/>
+  <ellipse cx="864" cy="176" rx="504" ry="336" fill="url(#glow-servicebranding)"/>
+  <polygon points="0,800 552,800 0,336" fill="#145DFF" opacity=".14"/>
+
+  <g transform="translate(0 0)">
+    <path fill="none" stroke="url(#c-servicebranding)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M600 300 l150 88 v176 l-150 88 -150 -88 V388 z"/>
+    <path fill="none" stroke="url(#c-servicebranding)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M600 396 l66 38 v78 l-66 38 -66 -38 v-78 z"/>
+    <path fill="none" stroke="url(#au-servicebranding)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"  d="M600 300 v96 M750 388 l-84 46 M450 388 l84 46 M600 652 v-100"/></g>
+
+  <path d="M64 736 H 360" stroke="url(#au-servicebranding)" stroke-width="2" opacity=".95"/>
+  <text x="64" y="718" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="4" fill="#CDA45E" opacity=".95">04</text>
+  <rect x="1" y="1" width="1198" height="798" fill="none" stroke="#5B8CFF" stroke-width="2" opacity=".16"/>
+</svg>

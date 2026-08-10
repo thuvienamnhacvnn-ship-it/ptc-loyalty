@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="Web">
+  <defs>
+    <linearGradient id="g-serviceweb" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050E1B"/><stop offset="1" stop-color="#0A1F3D"/>
+    </linearGradient>
+    <linearGradient id="c-serviceweb" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B8CFF"/><stop offset="1" stop-color="#145DFF"/>
+    </linearGradient>
+    <linearGradient id="au-serviceweb" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B8893F"/><stop offset=".5" stop-color="#CDA45E"/><stop offset="1" stop-color="#B8893F"/>
+    </linearGradient>
+    <radialGradient id="glow-serviceweb" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#145DFF" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#145DFF" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots-serviceweb" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.6" cy="1.6" r="1.6" fill="#5B8CFF" opacity=".26"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#g-serviceweb)"/>
+  <rect width="1200" height="800" fill="url(#dots-serviceweb)"/>
+  <ellipse cx="864" cy="176" rx="504" ry="336" fill="url(#glow-serviceweb)"/>
+  <polygon points="0,800 552,800 0,336" fill="#145DFF" opacity=".14"/>
+
+  <g transform="translate(0 0)">
+    <path fill="none" stroke="url(#c-serviceweb)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M420 320 h360 a24 24 0 0 1 24 24 v260 a24 24 0 0 1 -24 24 H420 a24 24 0 0 1 -24 -24 V344 a24 24 0 0 1 24 -24 z"/>
+    <path fill="none" stroke="url(#c-serviceweb)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M396 400 h408"/>
+    <path fill="none" stroke="url(#au-serviceweb)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"  d="M440 362 h18 M482 362 h18 M524 362 h18"/>
+    <path fill="none" stroke="url(#c-serviceweb)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M446 460 h150 M446 516 h230 M446 572 h110"/>
+    <path fill="none" stroke="url(#au-serviceweb)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"  d="M690 470 h74 v130 h-74 z"/></g>
+
+  <path d="M64 736 H 360" stroke="url(#au-serviceweb)" stroke-width="2" opacity=".95"/>
+  <text x="64" y="718" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="4" fill="#CDA45E" opacity=".95">05</text>
+  <rect x="1" y="1" width="1198" height="798" fill="none" stroke="#5B8CFF" stroke-width="2" opacity=".16"/>
+</svg>

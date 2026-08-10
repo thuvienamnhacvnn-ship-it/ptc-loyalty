@@ -10,8 +10,16 @@
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
+    /* Cobalt #145DFF — màu chủ đạo của PTC Creative. */
+    --primary: 221 100% 54%;
     --primary-foreground: 0 0% 100%;
+
+    /* Nền navy #050E1B / #0A1F3D và vàng #B8893F–#CDA45E.
+       Vàng CHỈ dùng cho nét mảnh, gạch chân, ký hiệu nhỏ — không tô mảng lớn. */
+    --navy: 215 68% 6%;
+    --navy-2: 215 72% 14%;
+    --gold: 37 49% 48%;
+    --gold-hi: 38 53% 59%;
     --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
     --muted: 210 40% 96%;
@@ -37,8 +45,12 @@
     --card-foreground: 210 40% 98%;
     --popover: 222 44% 10%;
     --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
+    --primary: 221 100% 64%;
     --primary-foreground: 222 47% 11%;
+    --navy: 215 68% 6%;
+    --navy-2: 215 72% 14%;
+    --gold: 37 49% 48%;
+    --gold-hi: 38 53% 59%;
     --secondary: 217 33% 17%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217 33% 17%;
@@ -70,5 +82,106 @@
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+/* ── Hệ hình ảnh marketing PTC Creative ──────────────────────────────────────
+   Cobalt trên nền navy, vàng chỉ làm nét mảnh. Các lớp này chỉ dùng ở trang
+   công khai (landing, features, pricing, about) — không đụng tới dashboard. */
+@layer components {
+  /* Khối nền navy, dùng cho hero và các dải nhấn. Chữ bên trong mặc định sáng. */
+  .ptc-deep {
+    background:
+      radial-gradient(70% 60% at 78% 12%, hsl(var(--primary) / 0.28), transparent 62%),
+      linear-gradient(150deg, hsl(var(--navy)) 0%, hsl(var(--navy-2)) 100%);
+    color: hsl(210 40% 98%);
+  }
+  /* Ma trận chấm cobalt — hoạ tiết nền đặc trưng của bộ collateral. */
+  .ptc-dots {
+    background-image: radial-gradient(hsl(var(--primary) / 0.35) 1.5px, transparent 1.5px);
+    background-size: 26px 26px;
+  }
+  /* Nét vàng mảnh. Đây là cách DUY NHẤT vàng được phép xuất hiện ở mảng rộng. */
+  .ptc-rule-gold {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      hsl(var(--gold)),
+      hsl(var(--gold-hi)),
+      hsl(var(--gold)),
+      transparent
+    );
+  }
+  /* Chỉ số mục "01 —" bằng vàng, chữ nhỏ giãn cách rộng. */
+  .ptc-index {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    color: hsl(var(--gold-hi));
+  }
+  /* Tiêu đề lớn chuyển sắc bạc → cobalt. */
+  .ptc-display {
+    /* Kết ở cobalt SÁNG (#5B8CFF) chứ không phải cobalt gốc: trên nền navy,
+       cobalt gốc làm những chữ cuối câu bị chìm. */
+    background: linear-gradient(96deg, #ffffff 0%, #dbe7ff 46%, #5b8cff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  /* Huy hiệu icon tròn cobalt đặc. */
+  .ptc-badge {
+    background: linear-gradient(140deg, hsl(var(--primary) / 0.95), hsl(var(--primary) / 0.6));
+    box-shadow: 0 8px 24px -8px hsl(var(--primary) / 0.7);
+  }
+  /* Hiện dần bằng CSS cho nội dung NẰM TRÊN MÀN HÌNH ĐẦU.
+     KHÔNG dùng framer-motion `initial={{opacity:0}}` ở đây: khi tab bị ẩn
+     hoặc bị điều tiết, `whileInView` không bao giờ chạy và tiêu đề đứng
+     nguyên ở opacity 0 — trang trông như trống trơn. Với CSS, nếu animation
+     không chạy vì bất kỳ lý do gì thì phần tử vẫn ở trạng thái thường
+     (opacity 1), nên không có kịch bản nào chữ biến mất. */
+  .ptc-rise {
+    animation: ptc-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .ptc-rise-2 {
+    animation: ptc-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.14s backwards;
+  }
+  @keyframes ptc-rise {
+    from {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+  }
+  /* Khối hiện dần khi cuộn tới — xem components/marketing/reveal.tsx.
+     Trạng thái ẩn CHỈ được đặt khi JS đã chạy (component gắn data-reveal),
+     nên nếu script hỏng thì nội dung vẫn hiển thị bình thường. */
+  .ptc-reveal[data-reveal="idle"] {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  .ptc-reveal[data-reveal="in"] {
+    animation: ptc-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ptc-rise,
+    .ptc-rise-2,
+    .ptc-reveal[data-reveal="in"] {
+      animation: none;
+    }
+    .ptc-reveal[data-reveal="idle"] {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* Thẻ kính trên nền navy. */
+  .ptc-glass {
+    background: hsl(0 0% 100% / 0.05);
+    border: 1px solid hsl(0 0% 100% / 0.12);
+    backdrop-filter: blur(10px);
+  }
+  .ptc-glass:hover {
+    border-color: hsl(var(--primary) / 0.55);
   }
 }

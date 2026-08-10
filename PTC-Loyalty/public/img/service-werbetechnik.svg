@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" width="1200" height="800" role="img" aria-label="Werbetechnik">
+  <defs>
+    <linearGradient id="g-servicewerbetechnik" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050E1B"/><stop offset="1" stop-color="#0A1F3D"/>
+    </linearGradient>
+    <linearGradient id="c-servicewerbetechnik" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5B8CFF"/><stop offset="1" stop-color="#145DFF"/>
+    </linearGradient>
+    <linearGradient id="au-servicewerbetechnik" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B8893F"/><stop offset=".5" stop-color="#CDA45E"/><stop offset="1" stop-color="#B8893F"/>
+    </linearGradient>
+    <radialGradient id="glow-servicewerbetechnik" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#145DFF" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#145DFF" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots-servicewerbetechnik" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.6" cy="1.6" r="1.6" fill="#5B8CFF" opacity=".26"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="800" fill="url(#g-servicewerbetechnik)"/>
+  <rect width="1200" height="800" fill="url(#dots-servicewerbetechnik)"/>
+  <ellipse cx="864" cy="176" rx="504" ry="336" fill="url(#glow-servicewerbetechnik)"/>
+  <polygon points="0,800 552,800 0,336" fill="#145DFF" opacity=".14"/>
+
+  <g transform="translate(0 0)">
+    <path fill="none" stroke="url(#c-servicewerbetechnik)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M400 330 h400 v190 H400 z"/>
+    <path fill="none" stroke="url(#c-servicewerbetechnik)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  d="M600 520 v130 M520 650 h160"/>
+    <path fill="none" stroke="url(#au-servicewerbetechnik)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"  d="M446 392 h130 M446 452 h220"/>
+    <circle fill="none" stroke="url(#c-servicewerbetechnik)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"  cx="742" cy="392" r="20"/></g>
+
+  <path d="M64 736 H 360" stroke="url(#au-servicewerbetechnik)" stroke-width="2" opacity=".95"/>
+  <text x="64" y="718" font-family="Segoe UI,Arial,sans-serif" font-size="22" font-weight="700" letter-spacing="4" fill="#CDA45E" opacity=".95">02</text>
+  <rect x="1" y="1" width="1198" height="798" fill="none" stroke="#5B8CFF" stroke-width="2" opacity=".16"/>
+</svg>

@@ -24,11 +24,11 @@ export default function ContactPage() {
             </div>
             <div className="flex items-center gap-3">
               <Phone className="h-5 w-5 text-primary" />
-              <span>+49 152 37376688</span>
+              <span>0152 23758632</span>
             </div>
             <div className="flex items-center gap-3">
               <MapPin className="h-5 w-5 text-primary" />
-              <span>Berlin, Deutschland</span>
+              <span>Kranoldstraße 24, 12621 Berlin</span>
             </div>
           </div>
           <Card>

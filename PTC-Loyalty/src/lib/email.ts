@@ -12,6 +12,8 @@ export interface SendEmailInput {
   subject: string;
   html: string;
   text?: string;
+  /** Trả lời thẳng cho người gửi (dùng cho tin từ form Liên hệ). */
+  replyTo?: string;
 }
 
 export interface SendEmailResult {
@@ -49,6 +51,7 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         subject: input.subject,
         html: input.html,
         ...(input.text ? { text: input.text } : {}),
+        ...(input.replyTo ? { reply_to: input.replyTo } : {}),
       }),
       signal: AbortSignal.timeout(15000),
     });
@@ -134,4 +137,42 @@ export function passwordResetEmailHtml(name: string, link: string): string {
       Nếu bạn không yêu cầu điều này, hãy bỏ qua email — mật khẩu của bạn không thay đổi.
     </p>
   </div>`;
+}
+
+/** Báo cho admin biết có tin mới từ form Liên hệ ngoài trang công khai. */
+export function contactNotificationEmailHtml(input: {
+  name: string;
+  email: string;
+  message: string;
+  adminUrl: string;
+}): string {
+  // Nội dung do khách lạ nhập nên phải escape trước khi nhúng vào HTML.
+  const esc = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  return shell(`
+    <h2 style="margin:0 0 4px">Tin nhắn mới từ trang Liên hệ</h2>
+    <p style="margin:0 0 20px;color:#94a3b8;font-size:12px">ptc-bonus.com/contact</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <tr>
+        <td style="padding:6px 0;color:#64748b;width:88px">Họ tên</td>
+        <td style="padding:6px 0;font-weight:600">${esc(input.name)}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:#64748b">Email</td>
+        <td style="padding:6px 0"><a href="mailto:${esc(input.email)}" style="color:#2563eb">${esc(input.email)}</a></td>
+      </tr>
+    </table>
+    <div style="margin:16px 0;padding:16px;background:#f1f5f9;border-radius:8px;white-space:pre-wrap;font-size:14px;line-height:1.6">${esc(input.message)}</div>
+    <p style="margin:0 0 20px;color:#475569;font-size:13px">
+      Bấm Trả lời là thư đi thẳng tới ${esc(input.email)}.
+    </p>
+    <p style="margin:0">
+      <a href="${input.adminUrl}" style="display:inline-block;background:#2563eb;color:#fff;text-decoration:none;padding:10px 18px;border-radius:8px;font-weight:600;font-size:14px">
+        Mở trong trang quản trị
+      </a>
+    </p>`);
 }

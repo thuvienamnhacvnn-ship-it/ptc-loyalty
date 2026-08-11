@@ -13,6 +13,7 @@ import {
   ScrollText,
   Settings,
   LifeBuoy,
+  Inbox,
 } from "lucide-react";
 import { Brand } from "@/components/brand";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -31,6 +32,7 @@ const nav = [
   { href: "/admin/fraud", label: "Cảnh báo gian lận", icon: ShieldAlert },
   { href: "/admin/audit-logs", label: "Audit logs", icon: ScrollText },
   { href: "/admin/support", label: "Hỗ trợ", icon: LifeBuoy },
+  { href: "/admin/contact", label: "Liên hệ từ website", icon: Inbox },
   { href: "/admin/settings", label: "Cấu hình", icon: Settings },
 ];
 

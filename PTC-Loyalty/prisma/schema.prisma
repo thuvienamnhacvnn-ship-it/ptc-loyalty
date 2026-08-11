@@ -847,6 +847,36 @@ model SupportTicket {
   @@index([status])
 }
 
+enum ContactMessageStatus {
+  NEW
+  READ
+  ARCHIVED
+}
+
+// Tin nhắn gửi từ form Liên hệ ngoài trang công khai. Người gửi là khách vãng
+// lai (không có tài khoản, không thuộc doanh nghiệp nào) nên KHÔNG dùng chung
+// SupportTicket — chỗ đó dành cho yêu cầu của các quán đã đăng ký.
+//
+// Tin luôn được ghi vào bảng này TRƯỚC rồi mới gửi email báo; email hỏng cũng
+// không làm mất tin, admin vẫn đọc được ở /admin/contact.
+model ContactMessage {
+  id         String               @id @default(cuid())
+  name       String
+  email      String
+  message    String
+  status     ContactMessageStatus @default(NEW)
+  ip         String?
+  userAgent  String?
+  emailSent  Boolean              @default(false)
+  emailError String?
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([ip, createdAt])
+}
+
 model FeatureFlag {
   id          String   @id @default(cuid())
   key         String   @unique

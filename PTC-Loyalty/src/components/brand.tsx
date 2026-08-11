@@ -29,7 +29,7 @@ export function Brand({
         <Sparkles className={cn("relative", s.icon)} />
       </div>
       <span className={cn("font-bold tracking-tight", s.text)}>
-        PTC<span className="text-[hsl(var(--gold-hi))]"> Loyalty</span>
+        PTC<span className="text-[hsl(var(--gold-hi))]"> Bonus</span>
       </span>
     </div>
   );

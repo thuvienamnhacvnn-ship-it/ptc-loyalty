@@ -7,10 +7,10 @@ export default function AboutPage() {
   return (
     <MarketingShell>
       <section className="container max-w-3xl py-16">
-        <h1 className="text-4xl font-bold tracking-tight">Về PTC Loyalty</h1>
+        <h1 className="text-4xl font-bold tracking-tight">Về PTC Bonus</h1>
         <div className="mt-8 space-y-4 text-muted-foreground">
           <p>
-            PTC Loyalty Platform được xây dựng dành riêng cho cộng đồng doanh nghiệp
+            PTC Bonus được xây dựng dành riêng cho cộng đồng doanh nghiệp
             Việt Nam tại Đức: nhà hàng, quán café, nail & beauty salon, cửa hàng bán
             lẻ và trung tâm dịch vụ.
           </p>

@@ -7,7 +7,7 @@ export default function PrivacyPage() {
   return (
     <LegalPage title="Chính sách bảo mật (DSGVO/GDPR)" updated="21.07.2026">
       <p>
-        PTC Loyalty Platform tôn trọng quyền riêng tư của bạn và tuân thủ Quy định
+        PTC Bonus tôn trọng quyền riêng tư của bạn và tuân thủ Quy định
         chung về bảo vệ dữ liệu của EU (DSGVO/GDPR).
       </p>
       <h2>1. Dữ liệu chúng tôi thu thập</h2>

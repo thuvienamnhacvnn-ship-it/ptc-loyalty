@@ -8,17 +8,17 @@ const inter = Inter({ subsets: ["latin", "vietnamese"], variable: "--font-sans" 
 
 export const metadata: Metadata = {
   title: {
-    default: "PTC Loyalty Platform",
-    template: "%s · PTC Loyalty",
+    default: "PTC Bonus",
+    template: "%s · PTC Bonus",
   },
   description:
     "Nền tảng khách hàng thân thiết, tích điểm và voucher cho doanh nghiệp Việt tại Đức.",
   manifest: "/manifest.webmanifest",
-  applicationName: "PTC Loyalty",
+  applicationName: "PTC Bonus",
   // iOS "Add to Home Screen" → full-screen, native-app-like standalone mode.
   appleWebApp: {
     capable: true,
-    title: "PTC Loyalty",
+    title: "PTC Bonus",
     statusBarStyle: "black-translucent",
   },
   formatDetection: { telephone: false },

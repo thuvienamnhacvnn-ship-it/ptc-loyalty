@@ -59,7 +59,7 @@ function memberCode(i: number) {
 }
 
 async function main() {
-  console.log("🌱 Seeding PTC Loyalty Platform...");
+  console.log("🌱 Seeding PTC Bonus...");
   const hash = await bcrypt.hash(DEMO_PASSWORD, 10);
 
   // Clean slate (order matters for FKs).

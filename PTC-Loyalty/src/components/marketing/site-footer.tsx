@@ -82,7 +82,7 @@ export function SiteFooter() {
 
       <div className="border-t">
         <div className="container flex flex-col items-center justify-between gap-2 py-6 text-sm text-muted-foreground md:flex-row">
-          <p>© {new Date().getFullYear()} A&amp;T VisioInvestment GmbH — PTC Loyalty. Alle Rechte vorbehalten.</p>
+          <p>© {new Date().getFullYear()} A&amp;T VisioInvestment GmbH — PTC Bonus. Alle Rechte vorbehalten.</p>
           <p className="flex items-center gap-2">
             <span className="inline-flex h-2 w-2 rounded-full bg-success" />
             EUR · Europe/Berlin · DSGVO-konform

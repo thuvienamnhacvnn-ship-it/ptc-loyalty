@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "PTC Loyalty Platform",
-    short_name: "PTC Loyalty",
+    name: "PTC Bonus",
+    short_name: "PTC Bonus",
     description: "Nền tảng khách hàng thân thiết cho doanh nghiệp Việt tại Đức.",
     start_url: "/member",
     display: "standalone",

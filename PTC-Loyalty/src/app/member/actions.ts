@@ -86,7 +86,7 @@ export async function redeemReward(rewardId: string): Promise<FormResult> {
       transactionId: redeemTxnId,
       pointsSpent: reward.pointsCost,
       balanceAfter,
-      storeName: business?.name ?? "PTC Loyalty",
+      storeName: business?.name ?? "PTC Bonus",
     });
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -172,7 +172,7 @@ export async function claimVoucher(voucherId: string): Promise<FormResult> {
       customerId: profile.id,
       customerVoucherId: claimedVoucherId,
       voucherTitle: voucher.title,
-      storeName: business?.name ?? "PTC Loyalty",
+      storeName: business?.name ?? "PTC Bonus",
     });
   } catch (err) {
     // eslint-disable-next-line no-console

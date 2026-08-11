@@ -62,7 +62,7 @@ export default async function AdminOverview() {
       <div>
         <h2 className="text-2xl font-bold tracking-tight">Tổng quan nền tảng</h2>
         <p className="text-sm text-muted-foreground">
-          Toàn cảnh PTC Loyalty Platform.
+          Toàn cảnh PTC Bonus.
         </p>
       </div>
 

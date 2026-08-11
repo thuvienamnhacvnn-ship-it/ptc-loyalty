@@ -20,7 +20,7 @@ export default function ContactPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <Mail className="h-5 w-5 text-primary" />
-              <span>hello@ptc-loyalty.example</span>
+              <span>hello@ptc-bonus.com</span>
             </div>
             <div className="flex items-center gap-3">
               <Phone className="h-5 w-5 text-primary" />

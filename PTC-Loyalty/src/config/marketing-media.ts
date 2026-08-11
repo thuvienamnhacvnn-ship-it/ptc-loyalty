@@ -27,14 +27,14 @@ export const MEDIA = {
     retail: "/img/industry-retail.svg",
   },
 
-  /** Sáu dịch vụ của PTC Creative. */
+  /** Sáu dịch vụ của PTC Creative — ảnh thật, lấy từ kho `E:\Works\PTC\ảnh web`. */
   service: {
-    cnc: "/img/service-cnc.svg",
-    werbetechnik: "/img/service-werbetechnik.svg",
-    druck: "/img/service-druck.svg",
-    branding: "/img/service-branding.svg",
-    web: "/img/service-web.svg",
-    marketing: "/img/service-marketing.svg",
+    cnc: "/img/service-cnc.jpg",
+    werbetechnik: "/img/service-werbetechnik.jpg",
+    druck: "/img/service-druck.jpg",
+    branding: "/img/service-branding.jpg",
+    web: "/img/service-web.jpg",
+    marketing: "/img/service-marketing.jpg",
   },
 
   /** Dải ảnh dự án đã làm. */

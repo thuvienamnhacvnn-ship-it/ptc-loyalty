@@ -68,7 +68,7 @@ export async function customerQrDataUrl(customerId: string): Promise<CustomerQrR
     name: `${c.firstName} ${c.lastName ?? ""}`.trim(),
     customerId: c.id,
     phone: c.phone ?? null,
-    storeName: business?.name ?? "PTC Loyalty",
+    storeName: business?.name ?? "PTC Bonus",
     logoUrl: business?.branding?.logoUrl ?? null,
   };
 }
@@ -223,7 +223,7 @@ export async function createCustomer(
       memberCode: created.memberCode,
       qrSecret: created.qrSecret,
       name: `${created.firstName} ${created.lastName ?? ""}`.trim(),
-      storeName: biz?.name ?? "PTC Loyalty",
+      storeName: biz?.name ?? "PTC Bonus",
       toPhone: d.phone,
     });
     // Sent from the business's own WhatsApp number — it either went out or we

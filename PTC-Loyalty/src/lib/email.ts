@@ -4,7 +4,7 @@
 //
 // Env:
 //   RESEND_API_KEY  — Resend API key (optional; emails are mocked when absent)
-//   EMAIL_FROM      — sender, e.g. "PTC Loyalty <no-reply@your-domain.com>"
+//   EMAIL_FROM      — sender, e.g. "PTC Bonus <no-reply@your-domain.com>"
 //                     (Resend's shared "onboarding@resend.dev" works for tests)
 
 export interface SendEmailInput {
@@ -20,7 +20,7 @@ export interface SendEmailResult {
   error?: string;
 }
 
-const FROM = process.env.EMAIL_FROM || "PTC Loyalty <onboarding@resend.dev>";
+const FROM = process.env.EMAIL_FROM || "PTC Bonus <onboarding@resend.dev>";
 
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -118,7 +118,7 @@ export function passwordResetEmailHtml(name: string, link: string): string {
     <h2 style="margin:0 0 8px">Đặt lại mật khẩu</h2>
     <p style="margin:0 0 16px;color:#475569">${greeting}</p>
     <p style="margin:0 0 16px;color:#475569">
-      Bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu cho tài khoản PTC Loyalty. Nhấp
+      Bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu cho tài khoản PTC Bonus. Nhấp
       vào nút bên dưới để tạo mật khẩu mới. Liên kết sẽ hết hạn sau <b>1 giờ</b>.
     </p>
     <p style="margin:0 0 24px">

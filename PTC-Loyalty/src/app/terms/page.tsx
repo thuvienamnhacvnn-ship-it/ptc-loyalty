@@ -7,7 +7,7 @@ export default function TermsPage() {
   return (
     <LegalPage title="Điều khoản dịch vụ" updated="21.07.2026">
       <p>
-        Bằng việc sử dụng PTC Loyalty Platform, bạn đồng ý với các điều khoản dưới
+        Bằng việc sử dụng PTC Bonus, bạn đồng ý với các điều khoản dưới
         đây.
       </p>
       <h2>1. Tài khoản</h2>

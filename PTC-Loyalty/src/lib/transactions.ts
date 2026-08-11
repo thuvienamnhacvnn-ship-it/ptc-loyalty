@@ -204,7 +204,7 @@ export async function earnPoints(input: EarnInput): Promise<EngineResult> {
       points,
       balanceAfter,
       totalEarned: customer.totalEarned + points,
-      storeName: business?.name ?? "PTC Loyalty",
+      storeName: business?.name ?? "PTC Bonus",
     });
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -301,7 +301,7 @@ export async function redeemPoints(input: RedeemInput): Promise<EngineResult> {
       transactionId: txn.id,
       pointsSpent: cost,
       balanceAfter,
-      storeName: business?.name ?? "PTC Loyalty",
+      storeName: business?.name ?? "PTC Bonus",
     });
   } catch (err) {
     // eslint-disable-next-line no-console

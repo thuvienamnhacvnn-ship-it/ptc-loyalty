@@ -74,7 +74,7 @@ export async function requestPasswordReset(
     const link = `${appUrl()}/reset-password?token=${raw}&email=${encodeURIComponent(email)}`;
     await sendEmail({
       to: email,
-      subject: "Đặt lại mật khẩu — PTC Loyalty",
+      subject: "Đặt lại mật khẩu — PTC Bonus",
       text: `Đặt lại mật khẩu (hết hạn sau 1 giờ): ${link}`,
       html: passwordResetEmailHtml(user.name ?? "", link),
     });

@@ -17,7 +17,7 @@ export default function LoginPage() {
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Chào mừng trở lại</CardTitle>
         <CardDescription>
-          Đăng nhập vào tài khoản PTC Loyalty của bạn
+          Đăng nhập vào tài khoản PTC Bonus của bạn
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

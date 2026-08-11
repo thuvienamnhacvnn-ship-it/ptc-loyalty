@@ -23,7 +23,7 @@ export default async function DashboardLayout({
       <Sidebar role={ctx.role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <DashboardHeader
-          businessName={business?.name ?? "PTC Loyalty"}
+          businessName={business?.name ?? "PTC Bonus"}
           userName={ctx.user.name ?? ctx.user.email}
           userEmail={ctx.user.email}
           role={ctx.role}

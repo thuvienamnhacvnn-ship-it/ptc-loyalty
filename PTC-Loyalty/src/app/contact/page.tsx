@@ -20,11 +20,11 @@ export default function ContactPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <Mail className="h-5 w-5 text-primary" />
-              <span>hello@ptc-bonus.com</span>
+              <span>ptc.creative.vn@gmail.com</span>
             </div>
             <div className="flex items-center gap-3">
               <Phone className="h-5 w-5 text-primary" />
-              <span>+49 30 000 000</span>
+              <span>+49 152 37376688</span>
             </div>
             <div className="flex items-center gap-3">
               <MapPin className="h-5 w-5 text-primary" />

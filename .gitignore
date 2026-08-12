@@ -1,0 +1,13 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SAFETY: this git repository is rooted at the Windows home folder, but ONLY the
+# PTC-Loyalty app is meant to be tracked. Ignore everything at the root, then
+# explicitly re-allow the app folder. This prevents a stray `git add -A` from
+# ever staging home secrets (.ssh, NTUSER.DAT, .bash_history, real .env, etc.).
+#
+# NOTE: The Next.js app lives in the PTC-Loyalty/ subfolder. On Vercel, set the
+# project's Root Directory to "PTC-Loyalty" so it finds package.json.
+# ─────────────────────────────────────────────────────────────────────────────
+
+/*
+!/.gitignore
+!/PTC-Loyalty/

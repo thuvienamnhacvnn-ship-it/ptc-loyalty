@@ -20,11 +20,16 @@ export const MEDIA = {
   /** Ảnh nền khối hero, sau tấm thẻ thành viên. */
   hero: "/img/hero.svg",
 
-  /** Ba nhóm ngành đang phục vụ. */
+  /**
+   * Ba nhóm ngành đang phục vụ — ảnh thật, lấy từ kho `E:\Works\PTC\ảnh mẫu`.
+   * Bản gốc là banner 16:9 có panel chữ bên trái; ở đây chỉ lấy phần ảnh chụp
+   * bên phải (bỏ 39% bên trái) vì thẻ đã có sẵn tiêu đề và huy hiệu icon rồi,
+   * để nguyên banner thì chữ chồng chữ và logo PTC lặp ba lần.
+   */
   industry: {
-    restaurant: "/img/industry-restaurant.svg",
-    beauty: "/img/industry-beauty.svg",
-    retail: "/img/industry-retail.svg",
+    restaurant: "/img/industry-restaurant.jpg",
+    beauty: "/img/industry-beauty.jpg",
+    retail: "/img/industry-retail.jpg",
   },
 
   /** Sáu dịch vụ của PTC Creative — ảnh thật, lấy từ kho `E:\Works\PTC\ảnh web`. */

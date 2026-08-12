@@ -38,7 +38,10 @@ log "Kéo image nền"
 $COMPOSE pull nginx certbot postgres redis evolution
 
 log "Build image ứng dụng"
-$COMPOSE build app
+# Phải build CẢ `migrate`: nó là image riêng (ptc-bonus-migrate, stage build) và
+# chính nó chạy `prisma db push`. Chỉ build `app` thì migrate vẫn ôm schema cũ,
+# báo "already in sync" rồi bảng mới không bao giờ được tạo trên prod.
+$COMPOSE build app migrate
 
 log "Khởi động stack"
 $COMPOSE up -d --remove-orphans

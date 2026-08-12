@@ -8,7 +8,13 @@ import { cn } from "@/lib/utils";
 import { ROLE_RANK } from "@/lib/rbac";
 import type { UserRole } from "@prisma/client";
 
-export function Sidebar({ role }: { role: UserRole }) {
+export function Sidebar({
+  role,
+  businessType,
+}: {
+  role: UserRole;
+  businessType: string;
+}) {
   const pathname = usePathname();
 
   return (
@@ -22,7 +28,9 @@ export function Sidebar({ role }: { role: UserRole }) {
         <nav className="flex-1 space-y-6 overflow-y-auto p-3">
           {dashboardNav.map((group) => {
             const items = group.items.filter(
-              (i) => !i.minRole || ROLE_RANK[role] >= ROLE_RANK[i.minRole],
+              (i) =>
+                (!i.minRole || ROLE_RANK[role] >= ROLE_RANK[i.minRole]) &&
+                (!i.businessTypes || i.businessTypes.includes(businessType)),
             );
             if (items.length === 0) return null;
             return (

@@ -186,6 +186,7 @@ enum WhatsAppMessageKind {
   TEST
   MANUAL // staff-composed outbound message
   INBOUND // message received FROM a customer
+  APPOINTMENT // xác nhận / nhắc / huỷ lịch hẹn
 }
 
 // ── Auth (Auth.js compatible) ────────────────────────────────────────────────
@@ -303,6 +304,7 @@ model Business {
   tiers            MembershipTier[]
   programs         LoyaltyProgram[]
   transactions     Transaction[]
+  appointments     Appointment[]
   vouchers         Voucher[]
   customerVouchers CustomerVoucher[]
   rewards          Reward[]
@@ -452,6 +454,7 @@ model Branch {
   business     Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
   staff        StaffProfile[]
   transactions Transaction[]
+  appointments Appointment[]
 
   @@index([businessId])
 }
@@ -472,6 +475,7 @@ model StaffProfile {
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   branch       Branch?       @relation(fields: [branchId], references: [id])
   transactions Transaction[]
+  appointments Appointment[]
 
   @@unique([businessId, userId])
   @@index([businessId])
@@ -510,6 +514,7 @@ model CustomerProfile {
   user             User?                @relation(fields: [userId], references: [id])
   membership       CustomerMembership?
   transactions     Transaction[]
+  appointments     Appointment[]
   customerVouchers CustomerVoucher[]
   redemptions      RewardRedemption[]
   campaignTargets  CampaignRecipient[]
@@ -845,6 +850,55 @@ model SupportTicket {
   updatedAt  DateTime            @updatedAt
 
   @@index([status])
+}
+
+enum AppointmentStatus {
+  BOOKED // đã đặt, chưa xác nhận lại
+  CONFIRMED // khách đã xác nhận
+  DONE // khách đã tới và làm xong
+  NO_SHOW // hẹn rồi nhưng không tới
+  CANCELLED
+}
+
+// Lịch hẹn (Termin). Bản đầu tiên CỐ Ý giữ đơn giản: nhân viên nhập giờ tay,
+// dịch vụ là một dòng chữ tự do. Chưa có danh mục dịch vụ kèm thời lượng và
+// chưa có giờ làm của từng thợ, nên hệ thống KHÔNG tự tính khung giờ trống —
+// nó chỉ cảnh báo khi hai lịch của cùng một thợ đè lên nhau.
+//
+// Khác hẳn bảng lượt ghé trên thẻ thành viên: bảng đó là quá khứ (Transaction),
+// còn đây là tương lai.
+model Appointment {
+  id         String            @id @default(cuid())
+  businessId String
+  branchId   String?
+  customerId String
+  staffId    String? // Bediener; null = quán tự phân công sau
+  startAt    DateTime
+  durationMin Int              @default(60)
+  service    String? // "Neumodellage", "Auffüllen"... — chữ tự do ở bản này
+  note       String?
+  status     AppointmentStatus @default(BOOKED)
+  createdById String? // User đã tạo lịch, để truy trách nhiệm
+
+  // Mốc đã nhắn gì rồi, để cron không gửi trùng.
+  confirmSentAt    DateTime?
+  reminder24SentAt DateTime?
+  reminder2SentAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch   Branch?         @relation(fields: [branchId], references: [id])
+  customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  staff    StaffProfile?   @relation(fields: [staffId], references: [id])
+
+  @@index([businessId, startAt])
+  @@index([businessId, status, startAt])
+  @@index([customerId, startAt])
+  @@index([staffId, startAt])
+  // Cron quét theo mốc thời gian nên cần chỉ mục riêng cho startAt.
+  @@index([startAt])
 }
 
 enum ContactMessageStatus {

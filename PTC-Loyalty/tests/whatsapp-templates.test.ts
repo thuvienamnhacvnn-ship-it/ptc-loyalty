@@ -5,6 +5,7 @@ import {
   normalizeLanguage,
   defaultTemplateRows,
   WA_LANGUAGES,
+  TEMPLATE_KEYS,
 } from "@/lib/whatsapp/templates";
 
 describe("WhatsApp templates", () => {
@@ -50,10 +51,15 @@ describe("WhatsApp templates", () => {
     }
   });
 
-  it("provisions 5 keys × 3 languages = 15 messages", () => {
+  it("provisions every key × 3 languages", () => {
     const rows = defaultTemplateRows();
-    expect(rows).toHaveLength(15);
+    expect(rows).toHaveLength(TEMPLATE_KEYS.length * WA_LANGUAGES.length);
     expect(new Set(rows.map((r) => r.language)).size).toBe(3);
     expect(rows.every((r) => r.body.length > 0)).toBe(true);
+    // Ba mẫu tin lịch hẹn phải nằm trong bộ mặc định, nếu không quán mới sẽ
+    // không có nội dung để sửa trong trang cài đặt WhatsApp.
+    for (const key of ["appointment_confirmed", "appointment_reminder", "appointment_cancelled"]) {
+      expect(rows.filter((r) => r.key === key)).toHaveLength(3);
+    }
   });
 });

@@ -15,6 +15,7 @@ import {
   Settings,
   CreditCard,
   QrCode,
+  CalendarClock,
 } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 
@@ -23,6 +24,8 @@ export interface NavItem {
   label: string;
   icon: LucideIcon;
   minRole?: UserRole; // minimum role required to see the item
+  /** Chi hien voi cac loai hinh quan nay; bo trong = moi quan deu thay. */
+  businessTypes?: string[];
 }
 
 export const dashboardNav: { group: string; items: NavItem[] }[] = [
@@ -39,6 +42,12 @@ export const dashboardNav: { group: string; items: NavItem[] }[] = [
     group: "Khách hàng",
     items: [
       { href: "/dashboard/customers", label: "Khách hàng", icon: Users },
+      {
+        href: "/dashboard/appointments",
+        label: "Lịch hẹn",
+        icon: CalendarClock,
+        businessTypes: ["nail_salon", "beauty_salon"],
+      },
       { href: "/dashboard/vouchers", label: "Voucher", icon: Ticket },
       { href: "/dashboard/rewards", label: "Quà tặng", icon: Gift },
       { href: "/dashboard/campaigns", label: "Chiến dịch", icon: Megaphone, minRole: "BUSINESS_MANAGER" },

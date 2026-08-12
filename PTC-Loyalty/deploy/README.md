@@ -141,6 +141,8 @@ crontab -e
 SECRET=<giá trị CRON_SECRET trong .env.production>
 0 8 * * * curl -fsS -H "Authorization: Bearer $SECRET" https://ptc-bonus.com/api/cron/birthday >/dev/null
 0 9 * * * curl -fsS -H "Authorization: Bearer $SECRET" https://ptc-bonus.com/api/cron/winback  >/dev/null
+# Nhắc lịch hẹn: 15 phút một lần, vì mốc "trước 2 tiếng" cần bắn đúng giờ.
+*/15 * * * * curl -fsS -H "Authorization: Bearer $SECRET" https://ptc-bonus.com/api/cron/appointment-reminders >/dev/null
 30 3 * * * /opt/ptc-bonus/PTC-Loyalty/deploy/backup.sh >> /var/log/ptc-backup.log 2>&1
 ```
 

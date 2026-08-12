@@ -13,7 +13,10 @@ export type TemplateKey =
   | "member_card" // caption of the membership-QR image
   | "points_earned"
   | "reward_redeemed"
-  | "voucher";
+  | "voucher"
+  | "appointment_confirmed" // Termin vừa được đặt
+  | "appointment_reminder" // nhắc trước giờ hẹn
+  | "appointment_cancelled";
 
 export type WaLanguage = "vi" | "de" | "en";
 
@@ -25,6 +28,9 @@ export const TEMPLATE_KEYS: TemplateKey[] = [
   "points_earned",
   "reward_redeemed",
   "voucher",
+  "appointment_confirmed",
+  "appointment_reminder",
+  "appointment_cancelled",
 ];
 
 // Parameter order per key:
@@ -33,6 +39,9 @@ export const TEMPLATE_KEYS: TemplateKey[] = [
 //   points_earned:   1=store, 2=points earned, 3=balance, 4=progress line, 5=member url
 //   reward_redeemed: 1=store, 2=points spent, 3=balance, 4=member url
 //   voucher:         1=store, 2=voucher title, 3=member url
+//   appointment_confirmed: 1=store, 2=customer, 3=thời điểm, 4=dịch vụ, 5=thợ, 6=địa chỉ
+//   appointment_reminder:  1=store, 2=thời điểm, 3=dịch vụ, 4=thợ
+//   appointment_cancelled: 1=store, 2=thời điểm
 const BODIES: Record<TemplateKey, Record<WaLanguage, string>> = {
   welcome: {
     vi: "🎉 Chào mừng {{2}} đến với *{{1}}*!\n\nBạn đã trở thành thành viên tích điểm.\nMã thành viên: *{{3}}*\n\nMỗi lần ghé {{1}}, bạn sẽ được cộng điểm và nhận ưu đãi riêng.\nXem tài khoản của bạn: {{4}}",
@@ -58,6 +67,21 @@ const BODIES: Record<TemplateKey, Record<WaLanguage, string>> = {
     vi: "🎁 {{1}}: Bạn có voucher mới: {{2}}.\nXem tài khoản của bạn: {{3}}",
     de: "🎁 {{1}}: Sie haben einen neuen Gutschein: {{2}}.\nKonto ansehen: {{3}}",
     en: "🎁 {{1}}: You have a new voucher: {{2}}.\nView your account: {{3}}",
+  },
+  appointment_confirmed: {
+    vi: "📅 *{{1}}* đã đặt lịch cho bạn.\n\nXin chào {{2}},\n🕒 Thời gian: *{{3}}*\n💅 Dịch vụ: {{4}}\n👩‍🎨 Người phục vụ: {{5}}\n📍 Địa chỉ: {{6}}\n\nCần đổi giờ hoặc huỷ thì bạn nhắn lại tin này nhé. Hẹn gặp bạn! ❤️",
+    de: "📅 Ihr Termin bei *{{1}}* ist gebucht.\n\nHallo {{2}},\n🕒 Zeit: *{{3}}*\n💅 Leistung: {{4}}\n👩‍🎨 Bedienung: {{5}}\n📍 Adresse: {{6}}\n\nZum Ändern oder Absagen antworten Sie einfach auf diese Nachricht. Bis bald! ❤️",
+    en: "📅 Your appointment at *{{1}}* is booked.\n\nHi {{2}},\n🕒 Time: *{{3}}*\n💅 Service: {{4}}\n👩‍🎨 With: {{5}}\n📍 Address: {{6}}\n\nTo change or cancel, just reply to this message. See you soon! ❤️",
+  },
+  appointment_reminder: {
+    vi: "⏰ Nhắc bạn lịch hẹn tại *{{1}}*\n\n🕒 {{2}}\n💅 {{3}}\n👩‍🎨 {{4}}\n\nNếu bạn không tới được, nhắn giúp chúng tôi một tin để nhường chỗ cho khách khác nhé. Cảm ơn bạn!",
+    de: "⏰ Erinnerung an Ihren Termin bei *{{1}}*\n\n🕒 {{2}}\n💅 {{3}}\n👩‍🎨 {{4}}\n\nFalls Sie es nicht schaffen, geben Sie uns bitte kurz Bescheid. Vielen Dank!",
+    en: "⏰ Reminder for your appointment at *{{1}}*\n\n🕒 {{2}}\n💅 {{3}}\n👩‍🎨 {{4}}\n\nIf you can't make it, please let us know so we can offer the slot to someone else. Thank you!",
+  },
+  appointment_cancelled: {
+    vi: "❌ *{{1}}*: lịch hẹn {{2}} của bạn đã được huỷ.\n\nBạn muốn đặt lại giờ khác? Nhắn cho chúng tôi nhé.",
+    de: "❌ *{{1}}*: Ihr Termin am {{2}} wurde storniert.\n\nMöchten Sie einen neuen Termin? Schreiben Sie uns einfach.",
+    en: "❌ *{{1}}*: your appointment on {{2}} has been cancelled.\n\nWould you like a new time? Just message us.",
   },
 };
 

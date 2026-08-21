@@ -16,6 +16,11 @@ import {
   CreditCard,
   QrCode,
   CalendarClock,
+  Fingerprint,
+  CalendarRange,
+  CalendarOff,
+  CalendarCheck2,
+  ClipboardList,
 } from "lucide-react";
 import type { UserRole } from "@prisma/client";
 
@@ -51,6 +56,29 @@ export const dashboardNav: { group: string; items: NavItem[] }[] = [
       { href: "/dashboard/vouchers", label: "Voucher", icon: Ticket },
       { href: "/dashboard/rewards", label: "Quà tặng", icon: Gift },
       { href: "/dashboard/campaigns", label: "Chiến dịch", icon: Megaphone, minRole: "BUSINESS_MANAGER" },
+    ],
+  },
+  {
+    // Chấm công và ca của tôi để cho MỌI vai trò thấy: nhân viên phải quét được
+    // thẻ và xem được ca của mình. Xếp ca, nghỉ phép và bảng công thì chặn ở
+    // quản lý vì chúng đụng tới cả quán.
+    group: "Nhân sự",
+    items: [
+      { href: "/dashboard/timeclock", label: "Chấm công", icon: Fingerprint },
+      { href: "/dashboard/my-schedule", label: "Ca của tôi", icon: CalendarCheck2 },
+      {
+        href: "/dashboard/schedule",
+        label: "Xếp ca",
+        icon: CalendarRange,
+        minRole: "BUSINESS_MANAGER",
+      },
+      { href: "/dashboard/absences", label: "Nghỉ phép & báo ốm", icon: CalendarOff },
+      {
+        href: "/dashboard/timesheet",
+        label: "Bảng công",
+        icon: ClipboardList,
+        minRole: "BUSINESS_MANAGER",
+      },
     ],
   },
   {

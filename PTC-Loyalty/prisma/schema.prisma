@@ -324,6 +324,13 @@ model Business {
   whatsappMessages      WhatsAppMessageLog[]
   communicationConsents CustomerCommunicationConsent[]
 
+  departments      Department[]
+  shiftTemplates   ShiftTemplate[]
+  shiftAssignments ShiftAssignment[]
+  staffAbsences    StaffAbsence[]
+  timeEntries      TimeEntry[]
+  workTimeSetting  WorkTimeSetting?
+
   @@index([status])
 }
 
@@ -455,6 +462,8 @@ model Branch {
   staff        StaffProfile[]
   transactions Transaction[]
   appointments Appointment[]
+  shiftAssignments ShiftAssignment[]
+  timeEntries      TimeEntry[]
 
   @@index([businessId])
 }
@@ -471,13 +480,41 @@ model StaffProfile {
   lastLoginAt   DateTime?
   createdAt     DateTime @default(now())
 
+  // ── Chấm công & xếp ca ──
+  /// Nonce ký thẻ chấm công. Đổi giá trị này là mọi thẻ đã in của người đó chết
+  /// ngay — đó là cách xử lý khi nhân viên làm mất thẻ hoặc nghỉ việc.
+  ///
+  /// Giá trị do POSTGRES sinh chứ không phải Prisma, và đây là chuyện bắt buộc
+  /// chứ không phải sở thích: cột này NOT NULL, mà `cuid()` thì Prisma chỉ điền
+  /// lúc tạo bản ghi mới. Thêm cột kiểu đó vào bảng đã có nhân viên thật trên
+  /// prod thì `prisma db push` chết vì không có gì để điền cho các dòng cũ.
+  /// `gen_random_uuid()` là hàm sẵn có của Postgres 13 trở lên nên nó điền
+  /// được ngay cho mọi dòng đang tồn tại.
+  qrSecret      String   @default(dbgenerated("gen_random_uuid()::text"))
+  /// Bộ phận chính (Küche, Bar-Service...). Xếp ca có thể ghi đè từng ca.
+  departmentId  String?
+  /// Mã nhân viên quán tự đặt, dùng khi xuất bảng công cho kế toán lương.
+  employeeNo    String?
+  /// Số điện thoại riêng của nhân viên, tách khỏi User.email vì nhiều quán
+  /// dùng chung một email cho cả nhà.
+  phone         String?
+  /// Giờ công cam kết mỗi tuần, để bảng công so được thừa/thiếu giờ.
+  weeklyHours   Float?
+  /// Lương giờ tính bằng cent để tránh sai số dấu phẩy động. Chỉ chủ quán xem.
+  hourlyWageCents Int?
+
   business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   branch       Branch?       @relation(fields: [branchId], references: [id])
+  department   Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   transactions Transaction[]
   appointments Appointment[]
+  shiftAssignments ShiftAssignment[]
+  absences         StaffAbsence[]
+  timeEntries      TimeEntry[]
 
   @@unique([businessId, userId])
+  @@unique([businessId, employeeNo])
   @@index([businessId])
 }
 
@@ -1059,4 +1096,213 @@ model CustomerCommunicationConsent {
   customer CustomerProfile @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([businessId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quản lý thời gian làm việc (Arbeitszeit)
+//
+// Ba khối tách bạch, đừng trộn vào nhau:
+//   1. KẾ HOẠCH  — ShiftTemplate + ShiftAssignment: quán ĐỊNH xếp ai làm ca nào.
+//   2. THỰC TẾ   — TimeEntry: nhân viên THỰC SỰ quét QR vào/ra lúc mấy giờ.
+//   3. VẮNG MẶT  — StaffAbsence: báo ốm/nghỉ phép, chặn không cho xếp ca.
+// Bảng công (Lohn) là phép so khối 2 với khối 1; sai lệch chính là cái quán
+// cần nhìn: đi muộn, về sớm, quên quét ra.
+//
+// Giờ trong ca lưu bằng SỐ PHÚT TỪ NỬA ĐÊM theo giờ địa phương của quán, không
+// phải DateTime. Lý do: "ca sáng 08:00–16:00" là một quy tắc lặp lại; gắn nó
+// vào một mốc UTC cụ thể thì mỗi lần đổi giờ mùa hè/mùa đông (Sommerzeit) lịch
+// sẽ tự lệch một tiếng. Còn TimeEntry thì ngược lại — đó là một khoảnh khắc có
+// thật nên vẫn là DateTime UTC.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AbsenceType {
+  SICK // báo ốm (Krankmeldung)
+  VACATION // nghỉ phép (Urlaub)
+  UNPAID // nghỉ không lương
+  TRAINING // đi học, đào tạo
+  OTHER
+}
+
+enum AbsenceStatus {
+  REQUESTED // nhân viên tự báo, chờ quản lý duyệt
+  APPROVED // đã duyệt — CHẶN xếp ca trong khoảng này
+  REJECTED
+  CANCELLED
+}
+
+enum ShiftAssignmentStatus {
+  PLANNED // đã xếp, chưa chốt
+  CONFIRMED // quản lý đã chốt hoặc nhân viên đã xác nhận
+  CANCELLED
+}
+
+enum TimeEntrySource {
+  QR // nhân viên quét thẻ ở máy chấm công — đường đi chuẩn
+  MANUAL // quản lý nhập hoặc sửa tay (luôn ghi lại ai sửa)
+  AUTO_CLOSE // hệ thống tự đóng vì quên quét ra
+}
+
+/// Bộ phận trong quán — với quán ăn là Küche, Bar-Service, Service...
+/// Tiệm nail thường không dùng, nên danh sách rỗng vẫn là hợp lệ.
+model Department {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  colorHex   String   @default("#145DFF")
+  sortOrder  Int      @default(0)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  business    Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staff       StaffProfile[]
+  templates   ShiftTemplate[]
+  assignments ShiftAssignment[]
+  timeEntries TimeEntry[]
+
+  @@unique([businessId, name])
+  @@index([businessId])
+}
+
+/// Khuôn ca lặp lại: "Ca sáng 08:00–16:00, nghỉ 30 phút".
+model ShiftTemplate {
+  id           String   @id @default(cuid())
+  businessId   String
+  name         String
+  startMinute  Int // phút từ nửa đêm, giờ quán. 08:00 = 480
+  endMinute    Int // 16:00 = 960. Nhỏ hơn hoặc bằng start nghĩa là ca qua đêm.
+  breakMin     Int      @default(0)
+  departmentId String? // ca chỉ dành cho một bộ phận; null = bộ phận nào cũng được
+  colorHex     String   @default("#145DFF")
+  sortOrder    Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+
+  business    Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  department  Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  assignments ShiftAssignment[]
+
+  @@unique([businessId, name])
+  @@index([businessId])
+}
+
+/// Một ô trong bảng xếp ca: nhân viên X, ngày Y, từ mấy giờ tới mấy giờ.
+/// Giờ được CHÉP từ khuôn ca lúc xếp chứ không đọc qua quan hệ — sửa khuôn ca
+/// cho tháng sau không được phép làm đổi lịch đã xếp và đã làm của tháng trước.
+model ShiftAssignment {
+  id              String                @id @default(cuid())
+  businessId      String
+  branchId        String?
+  staffId         String
+  departmentId    String?
+  shiftTemplateId String? // nguồn gốc, giữ để hiển thị tên ca
+  date            DateTime              @db.Date // ngày làm việc theo lịch quán
+  startMinute     Int
+  endMinute       Int
+  breakMin        Int                   @default(0)
+  note            String?
+  status          ShiftAssignmentStatus @default(PLANNED)
+  createdById     String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  business    Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch      Branch?        @relation(fields: [branchId], references: [id])
+  staff       StaffProfile   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  department  Department?    @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  template    ShiftTemplate? @relation(fields: [shiftTemplateId], references: [id], onDelete: SetNull)
+  timeEntries TimeEntry[]
+
+  // Một người không thể có hai ca bắt đầu cùng lúc trong cùng một ngày.
+  @@unique([staffId, date, startMinute])
+  @@index([businessId, date])
+  @@index([staffId, date])
+}
+
+/// Báo ốm hoặc nghỉ phép. Khoảng ngày tính cả startDate lẫn endDate.
+model StaffAbsence {
+  id             String        @id @default(cuid())
+  businessId     String
+  staffId        String
+  type           AbsenceType   @default(SICK)
+  status         AbsenceStatus @default(REQUESTED)
+  startDate      DateTime      @db.Date
+  endDate        DateTime      @db.Date
+  note           String?
+  /// Có giấy bác sĩ (AU-Bescheinigung) chưa — ở Đức từ ngày ốm thứ 3 là bắt buộc.
+  hasCertificate Boolean       @default(false)
+  reportedById   String? // User đã tạo: nhân viên tự báo hoặc quản lý nhập hộ
+  decidedById    String?
+  decidedAt      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  business Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  staff    StaffProfile @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, startDate])
+  @@index([staffId, startDate])
+  @@index([businessId, status])
+}
+
+/// Một lần chấm công có thật. clockOutAt còn null nghĩa là đang trong ca.
+model TimeEntry {
+  id                String          @id @default(cuid())
+  businessId        String
+  branchId          String?
+  staffId           String
+  departmentId      String?
+  shiftAssignmentId String? // ca đã xếp mà lần quét này khớp vào, nếu có
+  clockInAt         DateTime
+  clockOutAt        DateTime?
+  breakMin          Int             @default(0)
+  source            TimeEntrySource @default(QR)
+  note              String?
+  /// Đi muộn và về sớm so với ca đã xếp, tính bằng phút (0 nếu không xếp ca).
+  lateMin           Int             @default(0)
+  earlyLeaveMin     Int             @default(0)
+  /// Hệ thống tự đóng vì quên quét ra, nên số giờ KHÔNG đáng tin, phải sửa tay.
+  autoClosed        Boolean         @default(false)
+  editedById        String?
+  editedAt          DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  business   Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  branch     Branch?          @relation(fields: [branchId], references: [id])
+  staff      StaffProfile     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  department Department?      @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  assignment ShiftAssignment? @relation(fields: [shiftAssignmentId], references: [id], onDelete: SetNull)
+
+  @@index([businessId, clockInAt])
+  @@index([staffId, clockInAt])
+  // Máy chấm công hỏi "người này có đang mở ca nào không" ở MỌI lần quét.
+  @@index([staffId, clockOutAt])
+}
+
+/// Quy tắc chấm công của từng quán. Mặc định lấy theo luật giờ làm việc Đức
+/// (ArbZG): nghỉ 30 phút khi làm trên 6 tiếng, 45 phút khi trên 9 tiếng, trần
+/// 10 tiếng một ngày, nghỉ 11 tiếng giữa hai ca.
+model WorkTimeSetting {
+  id         String @id @default(cuid())
+  businessId String @unique
+
+  /// Quét sớm hoặc muộn trong khoảng này thì vẫn coi là đúng giờ.
+  toleranceMin    Int     @default(10)
+  /// Quá số giờ này mà chưa quét ra thì cron tự đóng và gắn cờ.
+  autoCloseHours  Int     @default(14)
+  /// Làm tròn giờ công theo bội số phút này (0 = không làm tròn).
+  roundingMin     Int     @default(0)
+  /// Tự trừ giờ nghỉ theo luật ngay cả khi nhân viên không bấm nghỉ.
+  autoDeductBreak Boolean @default(true)
+  breakAfter6h    Int     @default(30)
+  breakAfter9h    Int     @default(45)
+  maxDailyHours   Float   @default(10)
+  minRestHours    Float   @default(11)
+  /// Chặn quét lặp trong ngần này giây, tránh bấm hai lần thành vào rồi ra ngay.
+  scanCooldownSec Int     @default(60)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }

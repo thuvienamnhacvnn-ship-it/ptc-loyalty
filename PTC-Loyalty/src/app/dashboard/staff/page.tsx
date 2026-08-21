@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { formatDate, formatNumber } from "@/lib/format";
 import type { UserRole } from "@prisma/client";
+import { StaffWorktimeCell } from "./staff-worktime-cell";
 
 export const metadata: Metadata = { title: "Nhân viên" };
 
@@ -29,19 +30,25 @@ export default async function StaffPage() {
   const ctx = await requireBusinessContext();
   const canManage = hasAtLeast(ctx.role, "BUSINESS_MANAGER");
 
-  const [staff, branches] = await Promise.all([
+  const [staff, branches, departments] = await Promise.all([
     db.staffProfile.findMany({
       where: { businessId: ctx.businessId },
       orderBy: { createdAt: "asc" },
       include: {
         user: { select: { name: true, email: true } },
         branch: { select: { name: true } },
+        department: { select: { id: true, name: true } },
         _count: { select: { transactions: true } },
       },
     }),
     db.branch.findMany({
       where: { businessId: ctx.businessId },
       select: { id: true, name: true },
+    }),
+    db.department.findMany({
+      where: { businessId: ctx.businessId, isActive: true },
+      select: { id: true, name: true },
+      orderBy: { sortOrder: "asc" },
     }),
   ]);
 
@@ -70,10 +77,12 @@ export default async function StaffPage() {
                 <TableRow>
                   <TableHead>Nhân viên</TableHead>
                   <TableHead>Vai trò</TableHead>
+                  <TableHead>Bộ phận</TableHead>
                   <TableHead>Chi nhánh</TableHead>
                   <TableHead className="text-right">Giao dịch</TableHead>
                   <TableHead>Đăng nhập cuối</TableHead>
                   <TableHead>Trạng thái</TableHead>
+                  {canManage && <TableHead className="text-right">Thẻ chấm công</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -91,6 +100,9 @@ export default async function StaffPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
+                      {s.department?.name ?? "—"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
                       {s.branch?.name ?? "Tất cả"}
                     </TableCell>
                     <TableCell className="text-right">
@@ -104,6 +116,23 @@ export default async function StaffPage() {
                         {s.isActive ? "Hoạt động" : "Khóa"}
                       </Badge>
                     </TableCell>
+                    {canManage && (
+                      <TableCell>
+                        <StaffWorktimeCell
+                          canSetWage={hasAtLeast(ctx.role, "BUSINESS_OWNER")}
+                          departments={departments}
+                          profile={{
+                            staffId: s.id,
+                            name: s.user.name ?? s.user.email,
+                            departmentId: s.department?.id ?? null,
+                            employeeNo: s.employeeNo,
+                            phone: s.phone,
+                            weeklyHours: s.weeklyHours,
+                            hourlyWageCents: s.hourlyWageCents,
+                          }}
+                        />
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>

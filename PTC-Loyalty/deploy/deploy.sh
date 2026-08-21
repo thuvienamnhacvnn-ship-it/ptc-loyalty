@@ -73,6 +73,16 @@ fi
 log "Khởi động stack"
 $COMPOSE up -d --remove-orphans
 
+# `up -d` chỉ dựng lại container khi CẤU HÌNH COMPOSE đổi. File nginx nằm trong
+# bind mount conf.d, đổi nội dung nó thì compose không thấy gì khác nên nginx
+# giữ nguyên cấu hình đã nạp trong bộ nhớ — sửa nginx xong deploy mà chẳng có
+# tác dụng gì, im lặng. Đã dính đúng vậy ngày 21/08/2026 với block
+# /media-engine/. Reload là thao tác rẻ và không rớt kết nối, cứ làm mỗi lần.
+if $COMPOSE ps --status running nginx 2>/dev/null | grep -q nginx; then
+  log "Nạp lại cấu hình nginx"
+  $COMPOSE exec -T nginx nginx -s reload && echo "  đã nạp lại"
+fi
+
 log "Chờ ứng dụng sẵn sàng"
 for i in $(seq 1 60); do
   if $COMPOSE exec -T app wget -qO- http://127.0.0.1:3000/api/health 2>/dev/null | grep -q '"ok":true'; then

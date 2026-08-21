@@ -9,7 +9,22 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 ENV_FILE=".env.production"
-COMPOSE="docker compose --env-file $ENV_FILE -f docker-compose.prod.yml"
+
+# Máy chủ này còn chạy vài service KHÔNG thuộc repo (ví dụ media engine), khai
+# trong các file compose phụ nhưng CÙNG project `ptc-bonus`. Bên dưới có
+# `up -d --remove-orphans`, mà với compose thì "orphan" = container thuộc project
+# này nhưng không có mặt trong các file `-f` được truyền vào. Bỏ sót một file phụ
+# là deploy XOÁ SẠCH service đó — đã suýt xảy ra ngày 21/08/2026.
+# Nên: nạp mọi `docker-compose.*.yml` tìm thấy, đừng cứng nhắc một file.
+COMPOSE_FILES="-f docker-compose.prod.yml"
+for extra in docker-compose.*.yml; do
+  case "$extra" in
+    docker-compose.prod.yml | docker-compose.yml | "docker-compose.*.yml") continue ;;
+  esac
+  COMPOSE_FILES="$COMPOSE_FILES -f $extra"
+  echo "  + nạp thêm file compose phụ: $extra"
+done
+COMPOSE="docker compose --env-file $ENV_FILE $COMPOSE_FILES"
 
 log() { echo -e "\n\033[1;36m▶ $*\033[0m"; }
 

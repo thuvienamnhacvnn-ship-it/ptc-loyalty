@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency, formatDateTime, formatNumber } from "@/lib/format";
+import { staffDisplayName, staffNameSelect } from "@/lib/staff-name";
 
 export const metadata: Metadata = { title: "Giao dịch" };
 
@@ -37,7 +38,7 @@ export default async function TransactionsPage() {
       take: 100,
       include: {
         customer: { select: { firstName: true, lastName: true, memberCode: true } },
-        staff: { include: { user: { select: { name: true } } } },
+        staff: { select: staffNameSelect },
       },
     }),
     db.fraudAlert.findMany({
@@ -104,7 +105,7 @@ export default async function TransactionsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {t.staff?.user.name ?? "—"}
+                      {t.staff ? staffDisplayName(t.staff) : "—"}
                     </TableCell>
                     <TableCell>{t.amount != null ? formatCurrency(t.amount) : "—"}</TableCell>
                     <TableCell className={`text-right font-semibold ${t.points >= 0 ? "text-success" : "text-accent"}`}>

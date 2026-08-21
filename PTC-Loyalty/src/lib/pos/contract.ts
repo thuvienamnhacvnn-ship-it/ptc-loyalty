@@ -84,7 +84,8 @@ export interface PosTransactionListItem extends PosTransactionSummary {
 export interface PosStaff {
   id: string;
   name: string | null;
-  email: string;
+  /** Rỗng với nhân viên thường — họ không có tài khoản đăng nhập. */
+  email: string | null;
   role: string; // STAFF | BUSINESS_MANAGER | BUSINESS_OWNER
   branchId: string | null;
   branchName: string | null;

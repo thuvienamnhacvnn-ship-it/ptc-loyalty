@@ -9,6 +9,7 @@ import {
 } from "@/lib/worktime";
 import { dateKeyToUtcDate, utcDateToKey } from "@/lib/schedule";
 import { shiftSpanMinutes } from "@/lib/worktime";
+import { staffDisplayName, staffNameSelect, workerWhere } from "@/lib/staff-name";
 
 /**
  * Bảng công tháng: gộp mọi lần chấm công của một tháng theo từng nhân viên.
@@ -94,12 +95,13 @@ export async function buildTimesheet(
 
   const [staff, entries, assignments, absences] = await Promise.all([
     db.staffProfile.findMany({
-      where: { businessId },
+      // Bảng lương chỉ tính người làm công — chủ quán không nằm trong đó.
+      where: { businessId, ...workerWhere },
       select: {
         id: true,
         employeeNo: true,
         hourlyWageCents: true,
-        user: { select: { name: true, email: true } },
+        ...staffNameSelect,
         department: { select: { name: true } },
       },
       orderBy: { createdAt: "asc" },
@@ -207,7 +209,7 @@ export async function buildTimesheet(
 
     return {
       staffId: s.id,
-      name: s.user.name ?? s.user.email,
+      name: staffDisplayName(s),
       employeeNo: s.employeeNo,
       departmentName: s.department?.name ?? null,
       workedMin,

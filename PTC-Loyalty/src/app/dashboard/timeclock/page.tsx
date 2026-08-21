@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { KioskClient } from "./kiosk-client";
+import { staffDisplayName, staffNameSelect, workerWhere } from "@/lib/staff-name";
 
 export const metadata: Metadata = { title: "Chấm công" };
 
@@ -42,7 +43,7 @@ export default async function TimeclockPage() {
       },
       orderBy: { clockInAt: "desc" },
       include: {
-        staff: { select: { id: true, user: { select: { name: true, email: true } } } },
+        staff: { select: { id: true, ...staffNameSelect } },
         department: { select: { name: true, colorHex: true } },
         assignment: { include: { template: { select: { name: true } } } },
       },
@@ -54,12 +55,12 @@ export default async function TimeclockPage() {
         status: { not: "CANCELLED" },
       },
       include: {
-        staff: { select: { id: true, user: { select: { name: true, email: true } } } },
+        staff: { select: { id: true, ...staffNameSelect } },
         template: { select: { name: true } },
       },
       orderBy: { startMinute: "asc" },
     }),
-    db.staffProfile.count({ where: { businessId: ctx.businessId, isActive: true } }),
+    db.staffProfile.count({ where: { businessId: ctx.businessId, isActive: true, ...workerWhere } }),
   ]);
 
   const openEntries = entries.filter((e) => !e.clockOutAt);
@@ -134,7 +135,7 @@ export default async function TimeclockPage() {
                 <div key={e.id} className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">
-                      {e.staff.user.name ?? e.staff.user.email}
+                      {staffDisplayName(e.staff)}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       Vào lúc{" "}
@@ -168,7 +169,7 @@ export default async function TimeclockPage() {
                 {missing.map((a) => (
                   <div key={a.id} className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm">
-                      {a.staff.user.name ?? a.staff.user.email}
+                      {staffDisplayName(a.staff)}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {a.template?.name ?? "Ca"} {formatHhMm(a.startMinute)}
@@ -202,7 +203,7 @@ export default async function TimeclockPage() {
                 return (
                   <div key={e.id} className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm">
-                      {e.staff.user.name ?? e.staff.user.email}
+                      {staffDisplayName(e.staff)}
                     </span>
                     <span className="flex items-center gap-2 text-xs text-muted-foreground">
                       {e.autoClosed && <Badge variant="destructive">Quên quét ra</Badge>}

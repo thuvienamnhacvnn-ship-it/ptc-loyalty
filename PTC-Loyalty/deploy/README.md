@@ -146,6 +146,9 @@ SECRET=<giá trị CRON_SECRET trong .env.production>
 # Chấm công: đóng ca nhân viên quên quét ra. Chạy lúc 4h sáng, sau khi quán đã
 # đóng cửa hẳn, để không đóng nhầm ca đêm đang còn chạy.
 0 4 * * * curl -fsS -H "Authorization: Bearer $SECRET" https://ptc-bonus.com/api/cron/timeclock >/dev/null
+# Tổng kết ngày công gửi nhân viên qua WhatsApp. Chạy mỗi ngày 19h, tự bỏ qua
+# nếu chưa tới ngày cuối tháng theo múi giờ của quán.
+0 19 * * * curl -fsS -H "Authorization: Bearer $SECRET" https://ptc-bonus.com/api/cron/staff-monthly >/dev/null
 30 3 * * * /opt/ptc-bonus/PTC-Loyalty/deploy/backup.sh >> /var/log/ptc-backup.log 2>&1
 ```
 

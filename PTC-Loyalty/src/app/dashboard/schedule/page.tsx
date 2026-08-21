@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScheduleBoard } from "./schedule-board";
 import { ScheduleSettings } from "./schedule-settings";
 import { confirmWeek, copyPreviousWeek } from "./actions";
+import { staffDisplayName, workerWhere } from "@/lib/staff-name";
 
 export const metadata: Metadata = { title: "Xếp ca" };
 export const dynamic = "force-dynamic";
@@ -53,10 +54,12 @@ export default async function SchedulePage({
 
   const [staff, assignments, absences, templates, departments] = await Promise.all([
     db.staffProfile.findMany({
-      where: { businessId: ctx.businessId, isActive: true },
+      // Chủ quán không phải nhân viên nên không xuất hiện trên bảng xếp ca.
+      where: { businessId: ctx.businessId, isActive: true, ...workerWhere },
       select: {
         id: true,
         weeklyHours: true,
+        name: true,
         user: { select: { name: true, email: true } },
         department: { select: { name: true, sortOrder: true } },
       },
@@ -176,7 +179,7 @@ export default async function SchedulePage({
           canManage={canManage}
           staff={staff.map((s) => ({
             id: s.id,
-            name: s.user.name ?? s.user.email,
+            name: staffDisplayName(s),
             departmentName: s.department?.name ?? null,
             weeklyHours: s.weeklyHours,
           }))}

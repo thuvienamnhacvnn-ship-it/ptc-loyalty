@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
+import { staffNameSelect, workerWhere } from "@/lib/staff-name";
 
 /**
  * Dựng sẵn bộ phận, khuôn ca và quy tắc chấm công cho một quán.
@@ -103,13 +104,13 @@ export const staffForScheduleSelect = {
   employeeNo: true,
   weeklyHours: true,
   isActive: true,
-  user: { select: { name: true, email: true } },
+  ...staffNameSelect,
   department: { select: { id: true, name: true, colorHex: true } },
 } satisfies Prisma.StaffProfileSelect;
 
 export async function listSchedulableStaff(businessId: string) {
   return db.staffProfile.findMany({
-    where: { businessId, isActive: true },
+    where: { businessId, isActive: true, ...workerWhere },
     select: staffForScheduleSelect,
     orderBy: [{ department: { sortOrder: "asc" } }, { createdAt: "asc" }],
   });

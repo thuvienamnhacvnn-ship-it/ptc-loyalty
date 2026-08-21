@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireBusinessContext } from "@/lib/tenant";
 import { hasAtLeast } from "@/lib/rbac";
 import { absenceDayCount, dateKeyToUtcDate, utcDateToKey } from "@/lib/schedule";
+import { notifyAbsenceDecision } from "@/lib/whatsapp/staff-notify";
 
 export interface AbsenceState {
   ok?: boolean;
@@ -60,7 +61,7 @@ export async function reportAbsence(
 
   const staff = await db.staffProfile.findFirst({
     where: { id: input.staffId, businessId: ctx.businessId },
-    select: { id: true, user: { select: { name: true, email: true } } },
+    select: { id: true },
   });
   if (!staff) return { ok: false, error: "Không tìm thấy nhân viên trong quán này." };
 
@@ -117,9 +118,14 @@ export async function reportAbsence(
     warning = `${warning ? warning + " " : ""}Nghỉ ốm ${days} ngày cần giấy bác sĩ (AU-Bescheinigung).`;
   }
 
+  // Nhân viên không có tài khoản nên WhatsApp là cách duy nhất họ biết mình
+  // đã được cho nghỉ ngày nào. Gửi hỏng không được làm hỏng việc ghi nhận.
+  await notifyAbsenceDecision({ absenceId: absence.id, businessId: ctx.businessId }).catch(
+    () => undefined,
+  );
+
   revalidatePath("/dashboard/absences");
   revalidatePath("/dashboard/schedule");
-  revalidatePath("/dashboard/my-schedule");
   return { ok: true, warning };
 }
 
@@ -179,9 +185,14 @@ export async function decideAbsence(formData: FormData) {
     await releaseShifts(parsed.data.id, ctx.businessId);
   }
 
+  // Báo kết quả về WhatsApp của nhân viên — nói rõ ngày nào, vì đây là thứ
+  // quyết định mai họ có phải đi làm hay không.
+  await notifyAbsenceDecision({ absenceId: parsed.data.id, businessId: ctx.businessId }).catch(
+    () => undefined,
+  );
+
   revalidatePath("/dashboard/absences");
   revalidatePath("/dashboard/schedule");
-  revalidatePath("/dashboard/my-schedule");
 }
 
 /** Đánh dấu đã nộp giấy bác sĩ. */

@@ -7,6 +7,7 @@ import { requireBusinessContext } from "@/lib/tenant";
 import { hasAtLeast } from "@/lib/rbac";
 import { getWorkTimeSetting } from "@/lib/worktime-setup";
 import { formatDuration, formatHhMm, parseHhMm, shiftSpanMinutes } from "@/lib/worktime";
+import { staffDisplayName, staffNameSelect } from "@/lib/staff-name";
 import {
   addDays,
   dateKeyToUtcDate,
@@ -91,7 +92,7 @@ export async function createAssignment(
       id: true,
       branchId: true,
       departmentId: true,
-      user: { select: { name: true, email: true } },
+      ...staffNameSelect,
     },
   });
   if (!staff) return { ok: false, error: "Không tìm thấy nhân viên trong quán này." };
@@ -139,7 +140,7 @@ export async function createAssignment(
     if (!dept) return { ok: false, error: "Không tìm thấy bộ phận này." };
   }
 
-  const staffName = staff.user.name ?? staff.user.email;
+  const staffName = staffDisplayName(staff);
 
   // ── 1. Đang nghỉ thì chặn ────────────────────────────────────────────────
   const absences = await db.staffAbsence.findMany({
@@ -233,7 +234,6 @@ export async function createAssignment(
   });
 
   revalidatePath("/dashboard/schedule");
-  revalidatePath("/dashboard/my-schedule");
   return { ok: true, warning };
 }
 
@@ -247,7 +247,6 @@ export async function deleteAssignment(formData: FormData) {
   // businessId nằm trong where nên không xoá được ca của quán khác.
   await db.shiftAssignment.deleteMany({ where: { id, businessId: ctx.businessId } });
   revalidatePath("/dashboard/schedule");
-  revalidatePath("/dashboard/my-schedule");
 }
 
 /** Chốt cả tuần: chuyển mọi ca PLANNED sang CONFIRMED. */
@@ -266,7 +265,6 @@ export async function confirmWeek(formData: FormData) {
     data: { status: "CONFIRMED" },
   });
   revalidatePath("/dashboard/schedule");
-  revalidatePath("/dashboard/my-schedule");
 }
 
 /**
@@ -375,7 +373,6 @@ export async function copyPreviousWeek(formData: FormData): Promise<void> {
     await db.shiftAssignment.createMany({ data: rows, skipDuplicates: true });
   }
   revalidatePath("/dashboard/schedule");
-  revalidatePath("/dashboard/my-schedule");
 }
 
 // ── Bộ phận và khuôn ca ─────────────────────────────────────────────────────

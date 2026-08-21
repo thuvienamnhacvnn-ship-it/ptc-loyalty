@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { hasAtLeast } from "@/lib/rbac";
 import type { PosContext } from "@/lib/pos/context";
 import type { PosStaff } from "@/lib/pos/contract";
+import { staffDisplayName, staffNameSelect } from "@/lib/staff-name";
 
 // POS admin operations (staff / tiers / loyalty / campaigns), mirroring the web
 // dashboard's server actions but driven by the POS bearer context. Every write
@@ -24,14 +25,15 @@ export async function listPosStaff(ctx: PosContext): Promise<PosStaff[]> {
       maxPointsGrant: true,
       isActive: true,
       lastLoginAt: true,
-      user: { select: { name: true, email: true } },
+      ...staffNameSelect,
       branch: { select: { name: true } },
     },
   });
   return rows.map((s) => ({
     id: s.id,
-    name: s.user.name,
-    email: s.user.email,
+    name: staffDisplayName(s),
+    // Nhân viên thường không có tài khoản nên không có email.
+    email: s.user?.email ?? null,
     role: s.role,
     branchId: s.branchId,
     branchName: s.branch?.name ?? null,

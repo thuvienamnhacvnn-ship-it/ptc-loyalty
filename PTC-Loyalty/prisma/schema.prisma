@@ -187,6 +187,7 @@ enum WhatsAppMessageKind {
   MANUAL // staff-composed outbound message
   INBOUND // message received FROM a customer
   APPOINTMENT // xác nhận / nhắc / huỷ lịch hẹn
+  STAFF_BADGE // thẻ chấm công gửi cho nhân viên lúc nhận việc
 }
 
 // ── Auth (Auth.js compatible) ────────────────────────────────────────────────
@@ -468,10 +469,23 @@ model Branch {
   @@index([businessId])
 }
 
+// Người làm trong quán. CÓ HAI LOẠI, khác nhau ở chỗ có tài khoản hay không:
+//
+//   · Nhân viên (STAFF) — KHÔNG đăng nhập bao giờ. Danh tính là tên + số điện
+//     thoại + thẻ QR. Mọi thứ họ cần biết (duyệt nghỉ, bảng công cuối tháng)
+//     đến qua WhatsApp. Vì vậy `userId` để trống và `name` giữ tên thật.
+//   · Chủ quán và quản lý — có tài khoản để vào dashboard, nên `userId` có giá trị.
+//
+// Chủ quán vẫn có một dòng ở đây vì `requireBusinessContext` dò quán qua bảng
+// này, NHƯNG chủ không phải nhân viên: mọi danh sách nhân viên phải lọc bỏ
+// role = BUSINESS_OWNER.
 model StaffProfile {
   id            String   @id @default(cuid())
   businessId    String
-  userId        String
+  /// Rỗng với nhân viên thường — họ không có tài khoản để đăng nhập.
+  userId        String?
+  /// Tên hiển thị. Với người có tài khoản thì để trống và lấy theo User.name.
+  name          String?
   branchId      String?
   role          UserRole @default(STAFF) // STAFF | BUSINESS_MANAGER | BUSINESS_OWNER
   pin           String? // hashed PIN for sensitive actions
@@ -504,7 +518,7 @@ model StaffProfile {
   hourlyWageCents Int?
 
   business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
   branch       Branch?       @relation(fields: [branchId], references: [id])
   department   Department?   @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   transactions Transaction[]

@@ -19,7 +19,6 @@ import {
   Fingerprint,
   CalendarRange,
   CalendarOff,
-  CalendarCheck2,
   ClipboardList,
 } from "lucide-react";
 import type { UserRole } from "@prisma/client";
@@ -59,20 +58,24 @@ export const dashboardNav: { group: string; items: NavItem[] }[] = [
     ],
   },
   {
-    // Chấm công và ca của tôi để cho MỌI vai trò thấy: nhân viên phải quét được
-    // thẻ và xem được ca của mình. Xếp ca, nghỉ phép và bảng công thì chặn ở
-    // quản lý vì chúng đụng tới cả quán.
+    // Nhân viên KHÔNG đăng nhập — họ chỉ đứng trước máy chấm công và nhận
+    // thông báo qua WhatsApp. Nên cả nhóm này là việc của quản lý, trừ màn hình
+    // chấm công vốn để mở sẵn trên máy ở cửa nhân viên.
     group: "Nhân sự",
     items: [
       { href: "/dashboard/timeclock", label: "Chấm công", icon: Fingerprint },
-      { href: "/dashboard/my-schedule", label: "Ca của tôi", icon: CalendarCheck2 },
       {
         href: "/dashboard/schedule",
         label: "Xếp ca",
         icon: CalendarRange,
         minRole: "BUSINESS_MANAGER",
       },
-      { href: "/dashboard/absences", label: "Nghỉ phép & báo ốm", icon: CalendarOff },
+      {
+        href: "/dashboard/absences",
+        label: "Nghỉ phép & báo ốm",
+        icon: CalendarOff,
+        minRole: "BUSINESS_MANAGER",
+      },
       {
         href: "/dashboard/timesheet",
         label: "Bảng công",

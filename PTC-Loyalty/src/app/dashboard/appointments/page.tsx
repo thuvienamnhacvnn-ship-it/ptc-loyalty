@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/dashboard/page-header";
 import { AppointmentForm } from "./appointment-form";
 import { setAppointmentStatus } from "./actions";
+import { staffDisplayName, staffNameSelect, workerWhere } from "@/lib/staff-name";
 
 export const metadata: Metadata = { title: "Lịch hẹn" };
 
@@ -84,7 +85,7 @@ export default async function AppointmentsPage({
         customer: {
           select: { id: true, firstName: true, lastName: true, phone: true, memberCode: true },
         },
-        staff: { select: { user: { select: { name: true, email: true } } } },
+        staff: { select: staffNameSelect },
       },
     }),
     db.customerProfile.findMany({
@@ -94,8 +95,9 @@ export default async function AppointmentsPage({
       take: 500,
     }),
     db.staffProfile.findMany({
-      where: { businessId: ctx.businessId, isActive: true },
-      select: { id: true, user: { select: { name: true, email: true } } },
+      // Thợ làm cho khách là NHÂN VIÊN — chủ quán không nằm trong danh sách này.
+      where: { businessId: ctx.businessId, isActive: true, ...workerWhere },
+      select: { id: true, ...staffNameSelect },
     }),
   ]);
 
@@ -179,7 +181,7 @@ export default async function AppointmentsPage({
                         <span className="text-muted-foreground">
                           {" · "}
                           <User className="mb-0.5 inline h-3 w-3" />{" "}
-                          {a.staff?.user.name ?? "chưa phân công"}
+                          {a.staff ? staffDisplayName(a.staff) : "chưa phân công"}
                         </span>
                       </p>
                       {a.note && (
@@ -227,7 +229,7 @@ export default async function AppointmentsPage({
               }))}
               staff={staff.map((s) => ({
                 id: s.id,
-                name: s.user.name?.trim() || s.user.email,
+                name: staffDisplayName(s),
               }))}
               defaultDate={day}
             />

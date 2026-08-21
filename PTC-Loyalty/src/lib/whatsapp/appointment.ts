@@ -9,6 +9,7 @@ import { toWhatsAppNumber } from "@/lib/phone";
 import { resolveSessionOrReason } from "./connection";
 import { resolveBody } from "./service";
 import { normalizeLanguage, type TemplateKey } from "./templates";
+import { staffDisplayName } from "@/lib/staff-name";
 
 /** Hai mốc nhắc lịch: trước một ngày và ngay trước giờ hẹn. */
 export type ReminderSlot = "24h" | "2h";
@@ -119,7 +120,7 @@ export async function sendAppointmentWhatsApp(input: {
 
     const customerName = `${appt.customer.firstName} ${appt.customer.lastName ?? ""}`.trim();
     const when = formatAppointmentTime(appt.startAt, appt.business.timezone, language);
-    const staffName = appt.staff?.user.name?.trim() || "—";
+    const staffName = appt.staff ? staffDisplayName(appt.staff) : "—";
     const service = appt.service?.trim() || "—";
     const address =
       [appt.branch?.addressLine ?? appt.business.addressLine, appt.branch?.city ?? appt.business.city]

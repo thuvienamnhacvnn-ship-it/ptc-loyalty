@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { requireBusinessContext } from "@/lib/tenant";
 import { hasAtLeast } from "@/lib/rbac";
 import { renderStaffQrPng } from "@/lib/staff-qr";
+import { staffDisplayName, staffNameSelect } from "@/lib/staff-name";
 
 /**
  * Phần hồ sơ nhân viên phục vụ chấm công: thẻ QR, bộ phận, mã nhân viên, lương.
@@ -37,7 +38,7 @@ export async function getStaffBadge(staffId: string): Promise<StaffQrPayload> {
       id: true,
       qrSecret: true,
       employeeNo: true,
-      user: { select: { name: true, email: true } },
+      ...staffNameSelect,
       department: { select: { name: true } },
       business: { select: { name: true } },
     },
@@ -52,7 +53,7 @@ export async function getStaffBadge(staffId: string): Promise<StaffQrPayload> {
 
   return {
     ok: true,
-    name: staff.user.name ?? staff.user.email,
+    name: staffDisplayName(staff),
     employeeNo: staff.employeeNo,
     departmentName: staff.department?.name ?? null,
     businessName: staff.business.name,

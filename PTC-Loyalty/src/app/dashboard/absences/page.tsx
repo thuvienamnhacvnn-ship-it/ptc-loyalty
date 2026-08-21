@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { AbsenceForm } from "./absence-form";
 import { decideAbsence, markCertificate } from "./actions";
+import { staffDisplayName, staffNameSelect, workerWhere } from "@/lib/staff-name";
 
 export const metadata: Metadata = { title: "Nghỉ phép & báo ốm" };
 export const dynamic = "force-dynamic";
@@ -49,8 +50,9 @@ export default async function AbsencesPage() {
 
   const [staff, absences] = await Promise.all([
     db.staffProfile.findMany({
-      where: { businessId: ctx.businessId, isActive: true },
-      select: { id: true, user: { select: { name: true, email: true } } },
+      // Chủ quán không báo nghỉ với chính mình.
+      where: { businessId: ctx.businessId, isActive: true, ...workerWhere },
+      select: { id: true, ...staffNameSelect },
       orderBy: { createdAt: "asc" },
     }),
     db.staffAbsence.findMany({
@@ -61,7 +63,7 @@ export default async function AbsencesPage() {
       },
       orderBy: [{ startDate: "desc" }],
       take: 100,
-      include: { staff: { select: { user: { select: { name: true, email: true } } } } },
+      include: { staff: { select: staffNameSelect } },
     }),
   ]);
 
@@ -90,7 +92,7 @@ export default async function AbsencesPage() {
             <AbsenceForm
               isManager={isManager}
               lockedStaffId={isManager ? undefined : ctx.staffProfileId}
-              staff={staff.map((s) => ({ id: s.id, name: s.user.name ?? s.user.email }))}
+              staff={staff.map((s) => ({ id: s.id, name: staffDisplayName(s) }))}
             />
           </CardContent>
         </Card>
@@ -109,7 +111,7 @@ export default async function AbsencesPage() {
                   >
                     <div>
                       <p className="text-sm font-medium">
-                        {a.staff.user.name ?? a.staff.user.email}
+                        {staffDisplayName(a.staff)}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {TYPE_LABELS[a.type]} · {viDate(utcDateToKey(a.startDate))} –{" "}
@@ -172,7 +174,7 @@ export default async function AbsencesPage() {
                       return (
                         <TableRow key={a.id}>
                           <TableCell className="font-medium">
-                            {a.staff.user.name ?? a.staff.user.email}
+                            {staffDisplayName(a.staff)}
                           </TableCell>
                           <TableCell className="text-sm">{TYPE_LABELS[a.type]}</TableCell>
                           <TableCell className="text-sm tabular-nums">

@@ -17,6 +17,7 @@ import {
 } from "@/lib/worktime";
 import { addDays, dateKeyToUtcDate, dayIndex, toAbsoluteRange, utcDateToKey } from "@/lib/schedule";
 import { MINUTES_PER_DAY } from "@/lib/worktime";
+import { staffDisplayName, staffNameSelect } from "@/lib/staff-name";
 
 export type PunchAction = "IN" | "OUT";
 
@@ -79,7 +80,7 @@ export async function punchByToken(token: string): Promise<PunchResult> {
       isActive: true,
       branchId: true,
       departmentId: true,
-      user: { select: { name: true, email: true } },
+      ...staffNameSelect,
       department: { select: { name: true } },
     },
   });
@@ -99,7 +100,7 @@ export async function punchByToken(token: string): Promise<PunchResult> {
   const setting = await getWorkTimeSetting(ctx.businessId);
 
   const now = new Date();
-  const staffName = staff.user.name ?? staff.user.email;
+  const staffName = staffDisplayName(staff);
 
   const open = await db.timeEntry.findFirst({
     where: { staffId: staff.id, businessId: ctx.businessId, clockOutAt: null },

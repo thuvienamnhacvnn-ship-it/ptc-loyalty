@@ -22,6 +22,10 @@ services:
       - certbot_conf:/etc/letsencrypt
       - certbot_www:/var/www/certbot
       - nginx_cache:/var/cache/nginx
+      # Kho ảnh/video nặng của các site PTC khác, phục vụ chỉ-đọc dưới
+      # https://ptc-bonus.com/media/. Xem block `location /media/` trong
+      # docker/nginx/conf.d/ptc-bonus.conf.
+      - /opt/ptc-bonus/media:/srv/media:ro
     # Reload every 6h so a renewed certificate is picked up without downtime.
     command: >
       /bin/sh -c "while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"

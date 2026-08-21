@@ -58,6 +58,18 @@ log "Build image ứng dụng"
 # báo "already in sync" rồi bảng mới không bao giờ được tạo trên prod.
 $COMPOSE build app migrate
 
+# conf.d được bind-mount từ thư mục này, nên container nginx đang chạy ĐÃ nhìn
+# thấy file vừa `git pull` về, chỉ là chưa nạp. Kiểm ngay tại đó là cách rẻ nhất
+# để bắt lỗi cú pháp trước khi dựng lại — cấu hình hỏng mà cứ `up -d` thì nginx
+# chết và cả site đi theo. Nginx chưa chạy thì bỏ qua (lần deploy đầu tiên).
+if $COMPOSE ps --status running nginx 2>/dev/null | grep -q nginx; then
+  log "Kiểm cấu hình nginx"
+  if ! $COMPOSE exec -T nginx nginx -t; then
+    echo "  ✗ Cấu hình nginx sai — DỪNG, site vẫn đang chạy bản cũ." >&2
+    exit 1
+  fi
+fi
+
 log "Khởi động stack"
 $COMPOSE up -d --remove-orphans
 

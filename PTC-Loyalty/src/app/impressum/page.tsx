@@ -30,6 +30,13 @@ export default function ImpressumPage() {
       </p>
 
       <h2>Kontakt</h2>
+      {/*
+        Số này KHÁC hotline ở trang /contact (0152 23758632) và đó là CỐ Ý, không
+        phải lỗi gõ nhầm — đừng "sửa" cho giống nhau:
+          · đây là số pháp lý của pháp nhân A&T VisioInvestment GmbH, cũng là số
+            đã khai trong Meta Business Info, đổi là lệch hồ sơ bên Meta;
+          · còn kia là hotline khách hàng của PTC Creative, cũng là số WhatsApp.
+      */}
       <p>
         Telefon: <strong>+49 152 37376688</strong>
         <br />

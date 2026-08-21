@@ -20,6 +20,11 @@ export default function ContactPage() {
               <Mail className="h-5 w-5 text-primary" />
               <span>ptc.creative.vn@gmail.com</span>
             </div>
+            {/*
+              Hotline khách hàng của PTC Creative, cũng là số WhatsApp
+              (wa.me/4915223758632). KHÁC số trong Impressum (+49 152 37376688)
+              một cách CỐ Ý: số kia là số pháp lý của pháp nhân. Đừng gộp làm một.
+            */}
             <div className="flex items-center gap-3">
               <Phone className="h-5 w-5 text-primary" />
               <span>0152 23758632</span>
